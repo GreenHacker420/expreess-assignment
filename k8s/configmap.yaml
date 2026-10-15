@@ -6,8 +6,11 @@ metadata:
   labels:
     app: express-rag-backend
 data:
-  LLM_MODEL: "openai/gpt-oss-120b"
-  FAST_LLM_MODEL: "openai/gpt-oss-120b"
+  LLM_PROVIDER: "gemini"
+  GEMINI_MODEL: "gemini-2.5-flash"
+  GEMINI_FAST_MODEL: "gemini-2.5-flash"
+  EMBEDDING_PROVIDER: "gemini"
+  GEMINI_EMBEDDING_MODEL: "gemini-embedding-2-preview"
   CHROMA_DIR: "backend/data/chroma"
   DB_PATH: "backend/data/app.db"
   MAX_RETRIES: "2"

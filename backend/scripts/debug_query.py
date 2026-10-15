@@ -13,8 +13,8 @@ from backend.app.core.config import get_settings
 from backend.app.graph.builder import build_rag_graph
 from backend.app.graph.state import create_initial_state
 from backend.app.services.database import SQLiteDatabaseService
-from backend.app.services.embeddings import SentenceTransformerEmbeddingsService
-from backend.app.services.llm import GroqLLMService
+from backend.app.services.embeddings import GeminiEmbeddingsService
+from backend.app.services.llm import create_llm_service
 from backend.app.services.vector_store import ChromaVectorStoreService
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -24,23 +24,16 @@ logger = logging.getLogger("debug_query")
 async def run_query(question: str) -> None:
     settings = get_settings()
 
-    if not settings.groq_api_key:
-        logger.error("GROQ_API_KEY is not set in environment or .env. Please set it to test live queries.")
-        sys.exit(1)
-
     print(f"\n{'='*70}\nQuery: {question}\n{'='*70}\n")
 
     logger.info("Initializing services...")
-    embeddings = SentenceTransformerEmbeddingsService(settings.embedding_model)
+    embeddings = GeminiEmbeddingsService(
+        api_key=settings.gemini_api_key,
+        model_name=settings.gemini_embedding_model,
+    )
     vector_store = ChromaVectorStoreService(settings.chroma_dir, settings.chroma_collection)
     database = SQLiteDatabaseService(settings.db_path)
-    llm = GroqLLMService(
-        api_key=settings.groq_api_key,
-        model=settings.llm_model,
-        fast_model=settings.fast_llm_model,
-        temperature=settings.llm_temperature,
-        timeout_seconds=settings.llm_timeout_seconds,
-    )
+    llm = create_llm_service(settings)
 
     doc_count = database.count_documents()
     chunk_count = vector_store.count_chunks()

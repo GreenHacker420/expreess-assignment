@@ -14,7 +14,7 @@ from backend.app.core.config import Settings, get_settings
 from backend.app.graph.builder import build_rag_graph
 from backend.app.schemas import HealthResponse
 from backend.app.services.database import SQLiteDatabaseService
-from backend.app.services.embeddings import SentenceTransformerEmbeddingsService
+from backend.app.services.embeddings import GeminiEmbeddingsService
 from backend.app.services.ingestion import IngestionService
 from backend.app.services.llm import create_llm_service
 from backend.app.services.vector_store import ChromaVectorStoreService
@@ -36,7 +36,10 @@ async def lifespan(app: FastAPI):
         app.state.database = SQLiteDatabaseService(settings.db_path)
 
     if not hasattr(app.state, "embeddings"):
-        app.state.embeddings = SentenceTransformerEmbeddingsService(settings.embedding_model)
+        app.state.embeddings = GeminiEmbeddingsService(
+            api_key=settings.gemini_api_key,
+            model_name=settings.gemini_embedding_model,
+        )
 
     if not hasattr(app.state, "vector_store"):
         app.state.vector_store = ChromaVectorStoreService(

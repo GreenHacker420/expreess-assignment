@@ -197,14 +197,20 @@ Edit `.env` to include your credentials:
 # Gemini Developer API
 LLM_PROVIDER="gemini"
 GEMINI_API_KEY="your_gemini_api_key_here"
-GEMINI_MODEL="gemini-2.5-flash"
-GEMINI_FAST_MODEL="gemini-2.5-flash"
+GEMINI_MODEL="gemini-3.8-flash"
+GEMINI_FAST_MODEL="gemini-3.8-flash"
 
 # Optional Groq: set LLM_PROVIDER="groq" and configure GROQ_API_KEY / model names
 
 # Optional: LangSmith Tracing
 LANGSMITH_TRACING=false
 LANGSMITH_API_KEY=""
+```
+
+For this checkout, `backend/.env` is also loaded. An exported `GEMINI_API_KEY` or `GOOGLE_API_KEY` in your shell takes precedence over both files. If an old key was exported, clear it when starting the local app so the `backend/.env` key is used:
+
+```bash
+env -u GEMINI_API_KEY -u GOOGLE_API_KEY uv run uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 ### 3. Ingest Documentation Corpus
@@ -216,7 +222,7 @@ uv run python backend/scripts/ingest.py
 
 ### 4. Start FastAPI Backend Server
 ```bash
-uv run uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+env -u GEMINI_API_KEY -u GOOGLE_API_KEY uv run uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 FastAPI Swagger documentation will be available at [http://localhost:8000/docs](http://localhost:8000/docs).
 
@@ -271,7 +277,7 @@ The live graph evaluator reports status accuracy, top-k source recall, cited-sou
 
 ```bash
 # Requires the selected provider's API key and a populated Chroma index
-uv run python backend/evaluation/run_golden_eval.py
+env -u GEMINI_API_KEY -u GOOGLE_API_KEY uv run python backend/evaluation/run_golden_eval.py
 ```
 
 It saves timestamped JSON and CSV run results under `backend/evaluation/runs/` (ignored by git). Fact coverage is a transparent phrase-match regression signal, not a substitute for human review or an LLM-as-judge quality study.
@@ -279,7 +285,7 @@ It saves timestamped JSON and CSV run results under `backend/evaluation/runs/` (
 To test the running FastAPI application end to end, start the service in one terminal and run the API evaluator in another:
 
 ```bash
-uv run uvicorn backend.main:app --host 127.0.0.1 --port 8000
+env -u GEMINI_API_KEY -u GOOGLE_API_KEY uv run uvicorn backend.main:app --host 127.0.0.1 --port 8000
 uv run python backend/evaluation/run_api_eval.py --base-url http://127.0.0.1:8000
 ```
 

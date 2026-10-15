@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = Field(default=30.0, alias="LLM_TIMEOUT_SECONDS")
 
     # Embeddings & Vector Store
+    embedding_provider: str = Field(default="gemini", alias="EMBEDDING_PROVIDER")
+    gemini_embedding_model: str = Field(
+        default="gemini-embedding-2-preview", alias="GEMINI_EMBEDDING_MODEL"
+    )
     embedding_model: str = Field(
         default="sentence-transformers/all-MiniLM-L6-v2", alias="EMBEDDING_MODEL"
     )
