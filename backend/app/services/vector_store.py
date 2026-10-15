@@ -1,10 +1,56 @@
 """Vector store service interface and ChromaDB implementation."""
 
+from collections import Counter
+import math
 from pathlib import Path
+import re
 from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
+
+_TOKEN_PATTERN = re.compile(r"[a-zA-Z][a-zA-Z0-9_]{1,}")
+_STOP_WORDS = {
+    "about", "also", "and", "are", "can", "does", "for", "from", "how",
+    "into", "its", "one", "that", "the", "their", "this", "with", "work",
+}
+
+
+def _rank_keyword_documents(
+    rows: List[Dict[str, Any]], query: str, top_k: int
+) -> List[Dict[str, Any]]:
+    """Rank a small corpus with an IDF-weighted term-frequency score."""
+    terms = {
+        token.casefold()
+        for token in _TOKEN_PATTERN.findall(query)
+        if token.casefold() not in _STOP_WORDS
+    }
+    if not terms or not rows:
+        return []
+
+    tokenized = [
+        [token.casefold() for token in _TOKEN_PATTERN.findall(row.get("text", ""))]
+        for row in rows
+    ]
+    document_frequency = Counter(
+        term for tokens in tokenized for term in terms if term in set(tokens)
+    )
+    avg_length = sum(map(len, tokenized)) / len(tokenized) or 1.0
+    ranked = []
+    for row, tokens in zip(rows, tokenized):
+        frequencies = Counter(tokens)
+        length_norm = 0.25 + 0.75 * len(tokens) / avg_length
+        score = 0.0
+        for term in terms:
+            tf = frequencies[term]
+            if not tf:
+                continue
+            idf = math.log(1 + (len(rows) - document_frequency[term] + 0.5) / (document_frequency[term] + 0.5))
+            score += idf * (tf * 2.2) / (tf + 1.2 * length_norm)
+        if score > 0:
+            ranked.append(({**row, "distance": 1.0 / (1.0 + score)}, score))
+    ranked.sort(key=lambda item: item[1], reverse=True)
+    return [row for row, _ in ranked[:max(0, top_k)]]
 
 
 @runtime_checkable
@@ -25,6 +71,10 @@ class VectorStoreService(Protocol):
         self, query_embedding: List[float], top_k: int = 5
     ) -> List[Dict[str, Any]]:
         """Search top-k nearest chunks using the query vector."""
+        ...
+
+    def keyword_search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+        """Search top-k chunks using lexical overlap as a hybrid signal."""
         ...
 
     def delete_by_document_id(self, document_id: str) -> int:
@@ -111,6 +161,21 @@ class ChromaVectorStoreService:
             })
         return output
 
+    def keyword_search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+        """Search document text lexically to complement vector similarity."""
+        results = self._collection.get(include=["documents", "metadatas"])
+        rows = []
+        ids = results.get("ids") or []
+        docs = results.get("documents") or []
+        metas = results.get("metadatas") or []
+        for index, chunk_id in enumerate(ids):
+            rows.append({
+                "chunk_id": chunk_id,
+                "text": docs[index] if index < len(docs) else "",
+                "metadata": metas[index] if index < len(metas) else {},
+            })
+        return _rank_keyword_documents(rows, query, top_k)
+
     def delete_by_document_id(self, document_id: str) -> int:
         results = self._collection.get(
             where={"document_id": document_id},
@@ -174,6 +239,14 @@ class MockVectorStoreService:
                 "distance": 1.0 - score,
             })
         return results
+
+    def keyword_search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+        """Search the mock corpus lexically for deterministic hybrid tests."""
+        rows = [
+            {"chunk_id": cid, "text": item["text"], "metadata": item["metadata"]}
+            for cid, item in self.chunks.items()
+        ]
+        return _rank_keyword_documents(rows, query, top_k)
 
     def delete_by_document_id(self, document_id: str) -> int:
         to_del = [

@@ -78,12 +78,18 @@ class RAGNodeFactory:
         for query in queries:
             query_emb = self.embeddings.embed_query(query)
             query_results = self.vector_store.search(query_emb, top_k=self.top_k)
-            for rank, result in enumerate(query_results, start=1):
-                chunk_id = result.get("chunk_id", "")
-                if not chunk_id:
-                    continue
-                row = ranked.setdefault(chunk_id, {"result": result, "score": 0.0})
-                row["score"] += 1.0 / (60 + rank)
+            keyword_search = getattr(self.vector_store, "keyword_search", None)
+            if callable(keyword_search):
+                search_result_sets = [query_results, keyword_search(query, top_k=self.top_k)]
+            else:
+                search_result_sets = [query_results]
+            for result_set in search_result_sets:
+                for rank, result in enumerate(result_set, start=1):
+                    chunk_id = result.get("chunk_id", "")
+                    if not chunk_id:
+                        continue
+                    row = ranked.setdefault(chunk_id, {"result": result, "score": 0.0})
+                    row["score"] += 1.0 / (60 + rank)
         ordered = sorted(ranked.values(), key=lambda row: row["score"], reverse=True)
         candidate_limit = self.top_k * max(1, len(queries))
         raw_results = [row["result"] for row in ordered[:candidate_limit]]
@@ -134,13 +140,26 @@ class RAGNodeFactory:
 
         async def _grade_single(chunk: Dict[str, Any]) -> GradeRecord:
             async with self._grade_semaphore:
+                grading_question = question
+                aspects = state.get("retrieval_queries", [])
+                if len(aspects) > 1:
+                    grading_question += (
+                        "\n\nThis is a multi-aspect question. The chunk is relevant if it supports "
+                        "any one requested aspect; it does not need to answer the whole question alone. "
+                        "Focused aspects: " + "; ".join(aspects)
+                    )
                 out = await self.llm.grade_chunk(
-                    question=question,
+                    question=grading_question,
                     chunk_id=chunk["chunk_id"],
                     chunk_text=chunk["text"],
                 )
+                if out.chunk_id != chunk["chunk_id"]:
+                    logger.warning(
+                        "[query_id=%s] Grader returned chunk_id=%s for requested chunk_id=%s; binding verdict to request.",
+                        state["query_id"], out.chunk_id, chunk["chunk_id"],
+                    )
                 return GradeRecord(
-                    chunk_id=out.chunk_id,
+                    chunk_id=chunk["chunk_id"],
                     relevant=out.relevant,
                     reason=out.reason,
                 )

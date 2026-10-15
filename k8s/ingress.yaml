@@ -6,8 +6,9 @@ metadata:
   labels:
     app: express-rag-backend
   annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 spec:
+  ingressClassName: traefik
   rules:
     - host: express-rag.nstsdc.org
       http:
@@ -19,3 +20,4 @@ spec:
                 name: express-rag-backend
                 port:
                   number: 8000
+

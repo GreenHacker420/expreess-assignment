@@ -5,8 +5,20 @@ import time
 from typing import Any, Dict, List, Optional
 import httpx
 
-BACKEND_URL: str = os.getenv("BACKEND_URL", "http://localhost:8000")
+import streamlit as st
+
+def _resolve_backend_url() -> str:
+    """Resolve backend URL from Streamlit secrets or OS environment."""
+    try:
+        if "BACKEND_URL" in st.secrets:
+            return str(st.secrets["BACKEND_URL"]).rstrip("/")
+    except Exception:
+        pass
+    return os.getenv("BACKEND_URL", "https://express-rag.nstsdc.org").rstrip("/")
+
+BACKEND_URL: str = _resolve_backend_url()
 HTTP_TIMEOUT: float = 60.0
+
 
 
 def get_backend_health() -> Optional[Dict[str, Any]]:
