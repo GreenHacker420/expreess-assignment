@@ -40,7 +40,9 @@ flowchart TD
     
     route_decision -- "Relevant Chunks Found" --> generate[Node: generate\nSynthesize answer with citations [S1] [S2]]
     route_decision -- "No Relevant Chunks & retries < MAX" --> rewrite_query[Node: rewrite_query\nRefine search phrasing & retry_count++]
-    route_decision -- "Exhausted (retries >= MAX)" --> fallback[Node: fallback\nSafe refusal, zero hallucination]
+    route_decision -- "Exhausted & web not tried" --> web_search[Optional Tavily web search]
+    web_search --> grade_documents
+    route_decision -- "Exhausted & web tried/no service" --> fallback[Node: fallback\nSafe refusal, zero hallucination]
     
     rewrite_query --> retrieve
     generate --> generation_route{Evidence sufficient?}
@@ -61,6 +63,7 @@ flowchart TD
 | **`generate`** | Synthesizes a factual, grounded response citing retrieved source chunks explicitly using bracket labels (`[S1]`, `[S2]`). | `answer`, `citations`, `status="answered"` |
 | **`check_grounding`** | Uses a separate structured LLM judgment to check the answer claims against the cited context; permits one constrained regeneration. | `grounding_result`, bounded regeneration or safe fallback |
 | **`rewrite_query`** | Triggers when zero chunks pass relevance grading. Expands phrasing and loops back to `retrieve`. | `retry_count += 1`, `query_history` |
+| **`web_search`** | Optional single Tavily search after indexed-corpus retries; returned snippets are graded by the same relevance node and cited by URL. | `web_search_attempted`, `web_fallback_used` |
 | **CRAG correction** | Rewrites and retrieves again when grading rejects all chunks or generation identifies missing evidence, subject to `MAX_RETRIES`. | Bounded retrieval attempts |
 | **`fallback`** | Reached when retrieval retries are exhausted or answer grounding still fails. Returns safe refusal. | `answer`, `status="insufficient_context"` |
 
@@ -95,7 +98,7 @@ class GraphState(TypedDict):
 - Set `LLM_PROVIDER=groq` to use the optional Groq implementation and its `FAST_LLM_MODEL` / `LLM_MODEL` settings. Gemini is the default and reads `GEMINI_API_KEY` (or `GOOGLE_API_KEY`).
 
 ### 3. Bounded Loops (Cycle & Token Exhaustion Protection)
-Cyclic workflows can lead to runaway API bills if retrieval wanders. Retrieval correction is bounded by `MAX_RETRIES = 2` (at most 3 retrieval attempts). Self-RAG permits one regeneration after an unsupported draft; a second failed check routes to `fallback -> END`.
+Cyclic workflows can lead to runaway API bills if retrieval wanders. Retrieval correction is bounded by `MAX_RETRIES = 2` (at most 3 retrieval attempts). Optional web search is disabled by default and runs at most once after corpus retries; it requires both `WEB_SEARCH_ENABLED=true` and `TAVILY_API_KEY`. Web results pass relevance grading and answer-grounding checks, with citations pointing to their source URLs. Self-RAG permits one regeneration after an unsupported draft; a second failed check routes to `fallback -> END`.
 
 ### 4. Persistence & Checkpointing
 `build_rag_graph` supports optional LangGraph checkpointers (such as `MemorySaver` or database checkpointers). This facilitates:
@@ -201,6 +204,11 @@ GEMINI_MODEL="gemini-3.8-flash"
 GEMINI_FAST_MODEL="gemini-3.8-flash"
 
 # Optional Groq: set LLM_PROVIDER="groq" and configure GROQ_API_KEY / model names
+
+# Optional Tavily public-web fallback (disabled by default)
+WEB_SEARCH_ENABLED=false
+TAVILY_API_KEY=""
+WEB_SEARCH_MAX_RESULTS=5
 
 # Optional: LangSmith Tracing
 LANGSMITH_TRACING=false

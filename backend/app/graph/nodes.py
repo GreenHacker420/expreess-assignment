@@ -1,14 +1,17 @@
 """Implementation of all LangGraph nodes for the self-corrective RAG pipeline."""
 
 import asyncio
+import hashlib
 import logging
 import re
 from typing import Any, Dict, List
+from urllib.parse import urlparse
 
 from backend.app.graph.state import CitationRecord, GradeRecord, GraphState
 from backend.app.services.embeddings import EmbeddingsService
 from backend.app.services.llm import GroundingOutput, LLMOperationalError, LLMService
 from backend.app.services.vector_store import VectorStoreService
+from backend.app.services.web_search import WebSearchService
 
 logger = logging.getLogger("graph_nodes")
 
@@ -28,12 +31,16 @@ class RAGNodeFactory:
         vector_store: VectorStoreService,
         top_k: int = 5,
         grading_concurrency: int = 3,
+        web_search: WebSearchService | None = None,
+        web_search_max_results: int = 5,
     ):
         self.llm = llm
         self.embeddings = embeddings
         self.vector_store = vector_store
         self.top_k = top_k
         self.grading_concurrency = grading_concurrency
+        self.web_search = web_search
+        self.web_search_max_results = max(1, min(web_search_max_results, 10))
         self._grade_semaphore = asyncio.Semaphore(grading_concurrency)
 
     async def analyze_query(self, state: GraphState) -> Dict[str, Any]:
@@ -78,7 +85,7 @@ class RAGNodeFactory:
                 row = ranked.setdefault(chunk_id, {"result": result, "score": 0.0})
                 row["score"] += 1.0 / (60 + rank)
         ordered = sorted(ranked.values(), key=lambda row: row["score"], reverse=True)
-        candidate_limit = self.top_k + 2 * max(0, len(queries) - 1)
+        candidate_limit = self.top_k * max(1, len(queries))
         raw_results = [row["result"] for row in ordered[:candidate_limit]]
 
         retrieved_chunks = []
@@ -88,6 +95,7 @@ class RAGNodeFactory:
                 "chunk_id": r.get("chunk_id", ""),
                 "text": r.get("text", ""),
                 "source": meta.get("source", ""),
+                "document_id": meta.get("document_id", ""),
                 "title": meta.get("title", ""),
                 "section": meta.get("section", ""),
                 "chunk_index": meta.get("chunk_index", 0),
@@ -100,8 +108,15 @@ class RAGNodeFactory:
         )
 
         # Invariant: Replace retrieved_chunks, clear old grades and relevant_chunks
+        seen_history_ids = {item.get("chunk_id") for item in state.get("retrieval_history", [])}
+        retrieval_history = list(state.get("retrieval_history", []))
+        retrieval_history.extend(
+            chunk for chunk in retrieved_chunks
+            if chunk.get("chunk_id") not in seen_history_ids
+        )
         return {
             "retrieved_chunks": retrieved_chunks,
+            "retrieval_history": retrieval_history,
             "relevant_chunks": [],
             "grades": [],
             "retrieval_attempts": attempts,
@@ -171,6 +186,65 @@ class RAGNodeFactory:
             "retrieval_queries": [rewritten],
             "retry_count": new_retry_count,
             "query_history": history + [rewritten],
+        }
+
+    async def web_search_fallback(self, state: GraphState) -> Dict[str, Any]:
+        """Search the public web once after indexed-document correction is exhausted."""
+        if self.web_search is None:
+            logger.info("[query_id=%s] Web fallback disabled; returning corpus-only result.", state["query_id"])
+            return {"retrieved_chunks": [], "relevant_chunks": [], "grades": [], "web_fallback_used": False, "web_search_attempted": True}
+
+        question = state["original_question"]
+        # Do not send credential-exfiltration or prompt-override requests to a
+        # third-party search provider.
+        unsafe = re.search(
+            r"\b(ignore|disregard|override)\b.{0,50}\b(instructions?|rules?|system prompt)|"
+            r"\b(reveal|expose|print|show)\b.{0,40}\b(secrets?|credentials?|api keys?|passwords?)\b",
+            question,
+            flags=re.IGNORECASE,
+        )
+        if unsafe:
+            logger.info("[query_id=%s] Web fallback skipped for unsafe query.", state["query_id"])
+            return {"retrieved_chunks": [], "relevant_chunks": [], "grades": [], "web_fallback_used": False, "web_search_attempted": True}
+
+        query = state.get("retrieval_query") or question
+        try:
+            results = await self.web_search.search(query, max_results=self.web_search_max_results)
+        except Exception as exc:
+            # Search is optional; provider failures should not break corpus RAG.
+            logger.warning(
+                "[query_id=%s] Web search failed (%s); using safe fallback.",
+                state["query_id"], type(exc).__name__,
+            )
+            results = []
+
+        chunks = []
+        for result in results[:self.web_search_max_results]:
+            url = str(result.get("url", "")).strip()
+            parsed = urlparse(url)
+            title = str(result.get("title", "")).strip()
+            content = str(result.get("content", "")).strip()
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc or not content:
+                continue
+            digest = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+            chunks.append({
+                "chunk_id": f"web_{digest}",
+                "text": content[:8000],
+                "source": url,
+                "title": title or parsed.netloc,
+                "section": "Web search result",
+                "chunk_index": 0,
+                "distance": 0.0,
+                "source_type": "web",
+            })
+
+        logger.info("[query_id=%s] Web fallback returned %d usable results.", state["query_id"], len(chunks))
+        return {
+            "retrieved_chunks": chunks,
+            "relevant_chunks": [],
+            "grades": [],
+            "web_fallback_used": bool(chunks),
+            "web_search_attempted": True,
         }
 
     async def generate(self, state: GraphState) -> Dict[str, Any]:
@@ -283,6 +357,8 @@ def route_after_grading(state: GraphState) -> str:
         return "generate"
     if retries < max_retries:
         return "rewrite_query"
+    if not state.get("web_search_attempted", False):
+        return "web_search"
     return "fallback"
 
 

@@ -46,6 +46,10 @@ class QueryResponse(BaseModel):
         default=False,
         description="Whether the final cited answer passed the independent evidence-grounding check",
     )
+    web_fallback_used: bool = Field(
+        default=False,
+        description="Whether usable public web search results were retrieved after corpus retries",
+    )
 
 
 class UrlIngestRequest(BaseModel):

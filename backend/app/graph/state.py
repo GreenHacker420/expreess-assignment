@@ -50,6 +50,7 @@ class GraphState(TypedDict):
     query_type: str
     query_history: List[str]
     retrieved_chunks: List[Dict[str, Any]]
+    retrieval_history: List[Dict[str, Any]]
     relevant_chunks: List[Dict[str, Any]]
     grades: List[Dict[str, Any]]
     retry_count: int
@@ -58,6 +59,8 @@ class GraphState(TypedDict):
     grounding_result: Dict[str, Any]
     labeled_context: str
     generation_needs_retrieval: bool
+    web_fallback_used: bool
+    web_search_attempted: bool
     max_retries: int
     retrieval_attempts: int
     answer: str
@@ -69,6 +72,7 @@ def create_initial_state(
     question: str,
     query_id: Optional[str] = None,
     max_retries: int = 2,
+    web_fallback_used: bool = False,
 ) -> GraphState:
     """Initialize a clean, fresh GraphState for a new user request."""
     qid = query_id or str(uuid.uuid4())
@@ -82,6 +86,7 @@ def create_initial_state(
         query_type="conceptual",
         query_history=[],
         retrieved_chunks=[],
+        retrieval_history=[],
         relevant_chunks=[],
         grades=[],
         retry_count=0,
@@ -90,6 +95,8 @@ def create_initial_state(
         grounding_result={},
         labeled_context="",
         generation_needs_retrieval=False,
+        web_fallback_used=web_fallback_used,
+        web_search_attempted=False,
         max_retries=max_retries,
         retrieval_attempts=0,
         answer="",

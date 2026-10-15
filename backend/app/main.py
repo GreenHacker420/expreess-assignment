@@ -17,6 +17,7 @@ from backend.app.services.database import SQLiteDatabaseService
 from backend.app.services.embeddings import GeminiEmbeddingsService
 from backend.app.services.ingestion import IngestionService
 from backend.app.services.llm import create_llm_service
+from backend.app.services.web_search import TavilyWebSearchService
 from backend.app.services.vector_store import ChromaVectorStoreService
 
 logger = logging.getLogger("backend_app")
@@ -59,6 +60,13 @@ async def lifespan(app: FastAPI):
     if not hasattr(app.state, "llm"):
         app.state.llm = create_llm_service(settings)
 
+    if not hasattr(app.state, "web_search"):
+        app.state.web_search = (
+            TavilyWebSearchService(settings.tavily_api_key)
+            if settings.web_search_enabled and settings.tavily_api_key
+            else None
+        )
+
     if not hasattr(app.state, "graph"):
         app.state.graph = build_rag_graph(
             llm=app.state.llm,
@@ -66,6 +74,8 @@ async def lifespan(app: FastAPI):
             vector_store=app.state.vector_store,
             top_k=settings.top_k,
             grading_concurrency=settings.grading_concurrency,
+            web_search=app.state.web_search,
+            web_search_max_results=settings.web_search_max_results,
         )
 
     logger.info("Application initialized successfully.")

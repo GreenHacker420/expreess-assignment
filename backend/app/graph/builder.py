@@ -14,6 +14,7 @@ from backend.app.graph.state import GraphState
 from backend.app.services.embeddings import EmbeddingsService
 from backend.app.services.llm import LLMService
 from backend.app.services.vector_store import VectorStoreService
+from backend.app.services.web_search import WebSearchService
 
 
 def build_rag_graph(
@@ -23,6 +24,8 @@ def build_rag_graph(
     top_k: int = 5,
     grading_concurrency: int = 3,
     checkpointer: Optional[Any] = None,
+    web_search: Optional[WebSearchService] = None,
+    web_search_max_results: int = 5,
 ):
     """Build and compile the self-corrective RAG StateGraph workflow."""
     factory = RAGNodeFactory(
@@ -31,6 +34,8 @@ def build_rag_graph(
         vector_store=vector_store,
         top_k=top_k,
         grading_concurrency=grading_concurrency,
+        web_search=web_search,
+        web_search_max_results=web_search_max_results,
     )
 
     workflow = StateGraph(GraphState)
@@ -39,6 +44,7 @@ def build_rag_graph(
     workflow.add_node("analyze_query", factory.analyze_query)
     workflow.add_node("retrieve", factory.retrieve)
     workflow.add_node("grade_documents", factory.grade_documents)
+    workflow.add_node("web_search", factory.web_search_fallback)
     workflow.add_node("rewrite_query", factory.rewrite_query)
     workflow.add_node("generate", factory.generate)
     workflow.add_node("check_grounding", factory.check_grounding)
@@ -49,6 +55,7 @@ def build_rag_graph(
     workflow.add_edge("analyze_query", "retrieve")
     workflow.add_edge("retrieve", "grade_documents")
     workflow.add_edge("rewrite_query", "retrieve")
+    workflow.add_edge("web_search", "grade_documents")
     workflow.add_edge("fallback", END)
 
     # Register Conditional Edge after grade_documents
@@ -58,6 +65,7 @@ def build_rag_graph(
         {
             "generate": "generate",
             "rewrite_query": "rewrite_query",
+            "web_search": "web_search",
             "fallback": "fallback",
         },
     )

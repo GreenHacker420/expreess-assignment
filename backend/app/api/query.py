@@ -111,4 +111,5 @@ async def query_documentation(
         retrieval_attempts=final_state["retrieval_attempts"],
         query_type=final_state["query_type"],
         grounding_verified=final_state.get("grounding_result", {}).get("supported") is True,
+        web_fallback_used=final_state.get("web_fallback_used", False),
     )
