@@ -37,8 +37,9 @@ class GraphState(TypedDict):
     """Strictly typed state flowing between graph nodes.
 
     Important Invariants:
-        - Lists (retrieved_chunks, relevant_chunks, grades) are REPLACED on each
-          retrieval attempt. No append reducers are used.
+        - retrieved_chunks and grades describe the current pass; retrieval_history
+          retains deduplicated candidates across passes, and relevant_chunks keeps
+          deduplicated evidence judged useful for synthesis.
         - retry_count increments ONLY in rewrite_query.
         - retrieval_attempts increments ONLY in retrieve.
         - status is strictly 'answered' or 'insufficient_context'.

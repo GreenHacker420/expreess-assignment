@@ -288,6 +288,8 @@ The live graph evaluator reports status accuracy, top-k source recall, cited-sou
 env -u GEMINI_API_KEY -u GOOGLE_API_KEY uv run python backend/evaluation/run_golden_eval.py
 ```
 
+You can target the multi-document synthesis cases (`G08` and `G09`) while tuning retrieval or grading with `--cases path/to/cases.json`; the evaluator records the union of retrieved sources across correction attempts so a terminal fallback does not erase retrieval diagnostics.
+
 It saves timestamped JSON and CSV run results under `backend/evaluation/runs/` (ignored by git). Fact coverage is a transparent phrase-match regression signal, not a substitute for human review or an LLM-as-judge quality study.
 
 To test the running FastAPI application end to end, start the service in one terminal and run the API evaluator in another:

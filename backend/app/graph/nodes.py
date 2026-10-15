@@ -107,7 +107,6 @@ class RAGNodeFactory:
             state["query_id"], len(retrieved_chunks)
         )
 
-        # Invariant: Replace retrieved_chunks, clear old grades and relevant_chunks
         seen_history_ids = {item.get("chunk_id") for item in state.get("retrieval_history", [])}
         retrieval_history = list(state.get("retrieval_history", []))
         retrieval_history.extend(
@@ -117,7 +116,6 @@ class RAGNodeFactory:
         return {
             "retrieved_chunks": retrieved_chunks,
             "retrieval_history": retrieval_history,
-            "relevant_chunks": [],
             "grades": [],
             "retrieval_attempts": attempts,
         }
@@ -132,7 +130,7 @@ class RAGNodeFactory:
         )
 
         if not chunks:
-            return {"relevant_chunks": [], "grades": []}
+            return {"grades": []}
 
         async def _grade_single(chunk: Dict[str, Any]) -> GradeRecord:
             async with self._grade_semaphore:
@@ -155,7 +153,13 @@ class RAGNodeFactory:
         grades_dict = [g.model_dump() for g in grade_results]
         relevance_by_id = {g.chunk_id: g.relevant for g in grade_results}
 
-        relevant_chunks = [c for c in chunks if relevance_by_id.get(c["chunk_id"], False)]
+        relevant_chunks = list(state.get("relevant_chunks", []))
+        known_ids = {chunk.get("chunk_id") for chunk in relevant_chunks}
+        relevant_chunks.extend(
+            chunk for chunk in chunks
+            if relevance_by_id.get(chunk["chunk_id"], False)
+            and chunk.get("chunk_id") not in known_ids
+        )
 
         logger.info(
             "[query_id=%s] Grading complete: %d/%d chunks judged relevant.",
@@ -192,7 +196,7 @@ class RAGNodeFactory:
         """Search the public web once after indexed-document correction is exhausted."""
         if self.web_search is None:
             logger.info("[query_id=%s] Web fallback disabled; returning corpus-only result.", state["query_id"])
-            return {"retrieved_chunks": [], "relevant_chunks": [], "grades": [], "web_fallback_used": False, "web_search_attempted": True}
+            return {"retrieved_chunks": [], "grades": [], "web_fallback_used": False, "web_search_attempted": True}
 
         question = state["original_question"]
         # Do not send credential-exfiltration or prompt-override requests to a
@@ -205,7 +209,7 @@ class RAGNodeFactory:
         )
         if unsafe:
             logger.info("[query_id=%s] Web fallback skipped for unsafe query.", state["query_id"])
-            return {"retrieved_chunks": [], "relevant_chunks": [], "grades": [], "web_fallback_used": False, "web_search_attempted": True}
+            return {"retrieved_chunks": [], "grades": [], "web_fallback_used": False, "web_search_attempted": True}
 
         query = state.get("retrieval_query") or question
         try:
@@ -241,7 +245,6 @@ class RAGNodeFactory:
         logger.info("[query_id=%s] Web fallback returned %d usable results.", state["query_id"], len(chunks))
         return {
             "retrieved_chunks": chunks,
-            "relevant_chunks": [],
             "grades": [],
             "web_fallback_used": bool(chunks),
             "web_search_attempted": True,
