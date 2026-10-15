@@ -2,14 +2,17 @@
 
 Self-corrective RAG assistant built with LangGraph, ChromaDB, and FastAPI.
 Strictly styled with the Pastel Dreamland Adventure palette:
+- Solid Clean Background: #FEF6FB (No gradients)
 - Pink Orchid: #cdb4db
 - Pastel Petal: #ffc8dd
 - Blush Pop: #ffafcc
 - Icy Blue: #bde0fe
 - Sky Blue: #a2d2ff
-- Deep Text: #2B1540
+- Deep Plum Text: #2B1540
+All vector icons rendered as base64 SVGs to ensure 100% reliable rendering without font or sanitizer issues.
 """
 
+import base64
 import os
 import time
 import urllib.parse
@@ -19,7 +22,7 @@ import httpx
 import streamlit as st
 
 st.set_page_config(
-    page_title="DocuSphere · Documentation Assistant",
+    page_title="Library · Documentation Assistant",
     page_icon="📘",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -64,63 +67,65 @@ DEFAULT_DATASETS = [
     {"name": "Product contentes", "count": 4, "chunks": "1.898.032", "date": "August, 21"},
 ]
 
+
 # -----------------------------------------------------------------------------
-# Pure SVG Vectors (with xmlns, explicit viewBox, dimensions, and colors)
+# Base64 Vector SVGs (100% Reliable Rendering Across All Browsers)
 # -----------------------------------------------------------------------------
-SVG_LOGO = """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>"""
-SVG_HOME = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>"""
-SVG_MODELS = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>"""
-SVG_THREADS = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>"""
-SVG_LIBRARY = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>"""
-SVG_SMARTPAGES = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>"""
-SVG_REPORT = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>"""
+def b64_svg(svg_code: str) -> str:
+    encoded = base64.b64encode(svg_code.strip().encode("utf-8")).decode("utf-8")
+    return f"data:image/svg+xml;base64,{encoded}"
 
-SVG_BOLT = """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>"""
-SVG_BELL = """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B5EA8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>"""
-SVG_SEARCH = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C789E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>"""
 
-SVG_WRITE = """<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>"""
-SVG_UPLOAD = """<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>"""
-SVG_DATASET = """<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>"""
-SVG_SYNC = """<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>"""
+URI_LOGO = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>""")
+URI_HOME = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B5EA8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>""")
+URI_MODELS = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B5EA8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>""")
+URI_THREADS = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B5EA8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>""")
+URI_LIBRARY = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>""")
+URI_SMARTPAGES = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B5EA8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>""")
+URI_REPORT = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B5EA8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>""")
 
-SVG_DOC_ITEM = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>"""
-SVG_CUBE = """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B5EA8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>"""
-SVG_LAYERS = """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B5EA8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>"""
-SVG_CLOCK = """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B5EA8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>"""
-SVG_PLUS_CIRCLE = """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>"""
+URI_BOLT = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>""")
+URI_BELL = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B5EA8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>""")
+URI_SEARCH = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C789E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>""")
+
+URI_WRITE = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>""")
+URI_UPLOAD = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>""")
+URI_DATASET = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>""")
+URI_SYNC = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>""")
+
+URI_DOC_ITEM = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>""")
+URI_CUBE = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B5EA8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>""")
+URI_LAYERS = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B5EA8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>""")
+URI_CLOCK = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B5EA8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>""")
+URI_PLUS_CIRCLE = b64_svg("""<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>""")
 
 AVATAR_IMG = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80"
 
+
 # -----------------------------------------------------------------------------
-# Pastel Dreamland Adventure CSS
+# Clean, Flat Pastel Palette CSS (Zero Gradients, Maximum Clarity)
 # -----------------------------------------------------------------------------
-PASTEL_CSS = """
+SOLID_PASTEL_CSS = """
 <style>
-/* Pastel Dreamland Swirl Background */
+/* Clean, flat solid background matching .streamlit/config.toml */
 .stApp {
-    background: 
-        radial-gradient(at 0% 0%, #cdb4db 0px, transparent 55%),
-        radial-gradient(at 100% 0%, #a2d2ff 0px, transparent 55%),
-        radial-gradient(at 100% 100%, #ffc8dd 0px, transparent 55%),
-        radial-gradient(at 0% 100%, #bde0fe 0px, transparent 55%),
-        radial-gradient(at 50% 50%, #ffafcc 0px, transparent 65%),
-        #FEF6FB !important;
-    background-attachment: fixed !important;
+    background-color: #FEF6FB !important;
+    background-image: none !important;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-    padding-top: 1.5rem !important;
+    padding-top: 1rem !important;
     color: #2B1540 !important;
 }
 
-/* Central Floating White Window Card */
+/* White Window Card Container */
 .main .block-container {
     max-width: 1220px !important;
     background: #FFFFFF !important;
-    border-radius: 24px !important;
-    box-shadow: 0 20px 60px rgba(139, 91, 166, 0.22), 0 0 0 1px rgba(205, 180, 219, 0.4) !important;
-    padding: 30px 42px 42px 42px !important;
-    margin-top: 1.25rem !important;
-    margin-bottom: 2.5rem !important;
+    border-radius: 20px !important;
+    box-shadow: 0 4px 24px rgba(205, 180, 219, 0.22) !important;
+    border: 1px solid #CDB4DB !important;
+    padding: 26px 40px 38px 40px !important;
+    margin-top: 0.5rem !important;
+    margin-bottom: 2rem !important;
 }
 
 /* Top Navigation Bar */
@@ -128,8 +133,8 @@ PASTEL_CSS = """
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-bottom: 18px;
-    border-bottom: 1px solid #F0E2F5;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #F0E8FB;
     margin-bottom: 24px;
 }
 .nav-brand-group {
@@ -155,7 +160,7 @@ PASTEL_CSS = """
 .nav-link-item {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
     font-size: 0.93rem;
     font-weight: 500;
     color: #6B5EA8;
@@ -172,7 +177,7 @@ PASTEL_CSS = """
     border-bottom: 2px solid #4A7CC9;
 }
 
-/* Header Right Pills */
+/* Header Right Controls */
 .nav-right-group {
     display: flex;
     align-items: center;
@@ -188,6 +193,7 @@ PASTEL_CSS = """
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    border: 1px solid #a2d2ff;
 }
 .new-thread-btn {
     background: #a2d2ff;
@@ -200,7 +206,7 @@ PASTEL_CSS = """
     align-items: center;
     gap: 6px;
     text-decoration: none;
-    box-shadow: 0 4px 12px rgba(162, 210, 255, 0.45);
+    box-shadow: 0 2px 10px rgba(162, 210, 255, 0.4);
     transition: all 0.15s ease;
     border: none;
 }
@@ -216,13 +222,7 @@ PASTEL_CSS = """
     border: 2px solid #CDB4DB;
 }
 
-/* Library Heading & Search */
-.library-head-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 22px;
-}
+/* Library Heading */
 .library-main-title {
     font-size: 1.95rem;
     font-weight: 700;
@@ -230,37 +230,16 @@ PASTEL_CSS = """
     letter-spacing: -0.02em;
     margin: 0;
 }
-.search-box-container {
-    background: #FEF6FB;
-    border: 1px solid #CDB4DB;
-    border-radius: 12px;
-    padding: 7px 14px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    width: 250px;
-}
-.search-box-input {
-    border: none;
-    outline: none;
-    background: transparent;
-    font-size: 0.86rem;
-    color: #2B1540;
-    width: 100%;
-}
-.search-box-input::placeholder {
-    color: #8C789E;
-}
 
 /* 4 Quick Action Cards */
 .action-card {
     background: #FFFFFF;
     border: 1px solid #E8DCF0;
-    border-radius: 16px;
-    padding: 18px 20px;
+    border-radius: 14px;
+    padding: 16px 18px;
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
     box-shadow: 0 2px 8px rgba(139, 91, 166, 0.04);
     transition: all 0.18s ease;
     cursor: pointer;
@@ -268,21 +247,22 @@ PASTEL_CSS = """
 }
 .action-card:hover {
     border-color: #CDB4DB;
-    box-shadow: 0 10px 24px rgba(205, 180, 219, 0.28);
+    box-shadow: 0 8px 20px rgba(205, 180, 219, 0.28);
     transform: translateY(-2px);
 }
 .action-icon-box {
-    width: 46px;
-    height: 46px;
+    width: 44px;
+    height: 44px;
     border-radius: 12px;
     background: #bde0fe;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    border: 1px solid #a2d2ff;
 }
 .action-card-title {
-    font-size: 0.96rem;
+    font-size: 0.95rem;
     font-weight: 700;
     color: #2B1540;
     margin-bottom: 2px;
@@ -296,15 +276,15 @@ PASTEL_CSS = """
 .panel-card {
     background: #FFFFFF;
     border: 1px solid #E8DCF0;
-    border-radius: 16px;
-    padding: 20px;
-    box-shadow: 0 2px 10px rgba(139, 91, 166, 0.04);
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: 0 2px 8px rgba(139, 91, 166, 0.04);
 }
 .panel-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
 }
 .panel-title {
     font-size: 1.02rem;
@@ -321,7 +301,7 @@ PASTEL_CSS = """
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 8px;
+    padding: 9px 8px;
     border-radius: 8px;
     transition: background 0.15s ease;
     text-decoration: none;
@@ -345,14 +325,14 @@ PASTEL_CSS = """
     font-size: 1.25rem;
     font-weight: 700;
     color: #2B1540;
-    margin-top: 28px;
-    margin-bottom: 16px;
+    margin-top: 26px;
+    margin-bottom: 14px;
 }
 .dataset-item-row {
     background: #FFFFFF;
     border: 1px solid #E8DCF0;
-    border-radius: 14px;
-    padding: 14px 22px;
+    border-radius: 12px;
+    padding: 12px 20px;
     margin-bottom: 10px;
     display: flex;
     align-items: center;
@@ -361,7 +341,7 @@ PASTEL_CSS = """
 }
 .dataset-item-row:hover {
     border-color: #CDB4DB;
-    box-shadow: 0 4px 16px rgba(205, 180, 219, 0.22);
+    box-shadow: 0 4px 14px rgba(205, 180, 219, 0.22);
 }
 .dataset-left-info {
     display: flex;
@@ -376,6 +356,7 @@ PASTEL_CSS = """
     display: flex;
     align-items: center;
     justify-content: center;
+    border: 1px solid #a2d2ff;
 }
 .dataset-name-text {
     font-size: 0.94rem;
@@ -385,14 +366,14 @@ PASTEL_CSS = """
 .dataset-right-meta {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 16px;
 }
 .meta-chip {
     background: #FEF6FB;
     border: 1px solid #CDB4DB;
     border-radius: 8px;
     padding: 4px 10px;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 6px;
     font-size: 0.82rem;
@@ -402,7 +383,7 @@ PASTEL_CSS = """
 </style>
 """
 
-st.html(PASTEL_CSS)
+st.html(SOLID_PASTEL_CSS)
 
 
 # -----------------------------------------------------------------------------
@@ -443,12 +424,9 @@ def submit_feedback(base_url: str, query_id: Optional[str], rating: int) -> bool
         return False
 
 
-# Read navigation from query parameters
-nav_from_query = st.query_params.get("tab", "Library")
-if nav_from_query in ["Home", "Models", "Threads", "Library", "Smartpages", "Report"]:
-    current_tab = nav_from_query
-else:
-    current_tab = "Library"
+nav_tab = st.query_params.get("tab", "Library")
+if nav_tab not in ["Home", "Models", "Threads", "Library", "Smartpages", "Report"]:
+    nav_tab = "Library"
 
 health_info = fetch_health(BACKEND_URL)
 docs_count = health_info.get("document_count", 5) if health_info else 5
@@ -462,28 +440,28 @@ if url_prefilled_q:
 
 
 # -----------------------------------------------------------------------------
-# Top Navigation Bar (Pure Vector Icons + Seamless Query Navigation)
+# Top Navigation Bar
 # -----------------------------------------------------------------------------
 nav_pages = ["Home", "Models", "Threads", "Library", "Smartpages", "Report"]
-nav_icons = {
-    "Home": SVG_HOME,
-    "Models": SVG_MODELS,
-    "Threads": SVG_THREADS,
-    "Library": SVG_LIBRARY,
-    "Smartpages": SVG_SMARTPAGES,
-    "Report": SVG_REPORT,
+nav_uris = {
+    "Home": URI_HOME,
+    "Models": URI_MODELS,
+    "Threads": URI_THREADS,
+    "Library": URI_LIBRARY,
+    "Smartpages": URI_SMARTPAGES,
+    "Report": URI_REPORT,
 }
 
 top_bar_html = f"""
 <div class="nav-bar-container">
     <div class="nav-brand-group">
         <div class="nav-logo-box">
-            {SVG_LOGO}
+            <img src="{URI_LOGO}" width="22" height="22" alt="Logo" />
         </div>
         <div class="nav-links-row">
             {"".join([
-                f'<a href="?tab={p}" target="_self" class="nav-link-item {"active" if p == current_tab else ""}">'
-                f'{nav_icons[p]} {p}'
+                f'<a href="?tab={p}" target="_self" class="nav-link-item {"active" if p == nav_tab else ""}">'
+                f'<img src="{nav_uris[p]}" width="16" height="16" alt="{p}" /> {p}'
                 f'</a>'
                 for p in nav_pages
             ])}
@@ -491,13 +469,13 @@ top_bar_html = f"""
     </div>
     <div class="nav-right-group">
         <div class="quota-pill">
-            {SVG_BOLT} 13 / 54M · 26%
+            <img src="{URI_BOLT}" width="14" height="14" alt="Status" /> 13 / 54M · 26%
         </div>
         <a href="?tab=Threads&new=1" target="_self" class="new-thread-btn">
             + New thread
         </a>
         <div style="cursor: pointer;">
-            {SVG_BELL}
+            <img src="{URI_BELL}" width="18" height="18" alt="Notifications" />
         </div>
         <img class="nav-avatar-img" src="{AVATAR_IMG}" alt="Profile avatar" />
     </div>
@@ -510,7 +488,7 @@ st.html(top_bar_html)
 # -----------------------------------------------------------------------------
 # View: Library
 # -----------------------------------------------------------------------------
-if current_tab == "Library":
+if nav_tab == "Library":
     # Header: Title + Search
     head_c1, head_c2 = st.columns([3, 2], vertical_alignment="center")
     with head_c1:
@@ -531,7 +509,9 @@ if current_tab == "Library":
     with act1:
         c1_html = f"""
         <a href="?tab=Threads" target="_self" class="action-card">
-            <div class="action-icon-box">{SVG_WRITE}</div>
+            <div class="action-icon-box">
+                <img src="{URI_WRITE}" width="22" height="22" alt="Write" />
+            </div>
             <div>
                 <div class="action-card-title">Write content</div>
                 <div class="action-card-subtitle">Using AI</div>
@@ -543,7 +523,9 @@ if current_tab == "Library":
     with act2:
         c2_html = f"""
         <a href="?tab=Library&upload=1" target="_self" class="action-card">
-            <div class="action-icon-box">{SVG_UPLOAD}</div>
+            <div class="action-icon-box">
+                <img src="{URI_UPLOAD}" width="22" height="22" alt="Upload" />
+            </div>
             <div>
                 <div class="action-card-title">Upload or drop</div>
                 <div class="action-card-subtitle">Multiple file formats</div>
@@ -555,7 +537,9 @@ if current_tab == "Library":
     with act3:
         c3_html = f"""
         <a href="?tab=Smartpages" target="_self" class="action-card">
-            <div class="action-icon-box">{SVG_DATASET}</div>
+            <div class="action-icon-box">
+                <img src="{URI_DATASET}" width="22" height="22" alt="Dataset" />
+            </div>
             <div>
                 <div class="action-card-title">Create dataset</div>
                 <div class="action-card-subtitle">Organize your contents</div>
@@ -567,7 +551,9 @@ if current_tab == "Library":
     with act4:
         c4_html = f"""
         <a href="?tab=Library&sync=1" target="_self" class="action-card">
-            <div class="action-icon-box">{SVG_SYNC}</div>
+            <div class="action-icon-box">
+                <img src="{URI_SYNC}" width="22" height="22" alt="Sync" />
+            </div>
             <div>
                 <div class="action-card-title">Import & sync</div>
                 <div class="action-card-subtitle">connect doc from apps</div>
@@ -612,7 +598,6 @@ if current_tab == "Library":
                     st.query_params["upload"] = "0"
                     st.rerun()
 
-    # Sync action if requested via ?sync=1
     if st.query_params.get("sync") == "1":
         fetch_documents.clear()
         fetch_health.clear()
@@ -633,7 +618,7 @@ if current_tab == "Library":
             </div>
             {"".join([
                 f'<a href="?tab=Threads&q={urllib.parse.quote_plus(doc["query"])}" target="_self" class="doc-row-item">'
-                f'{SVG_DOC_ITEM}'
+                f'<img src="{URI_DOC_ITEM}" width="16" height="16" alt="Doc" />'
                 f'<div><span class="doc-row-title">{doc["title"]}</span> <span class="doc-row-dataset">· in {doc["dataset"]}</span></div>'
                 f'</a>'
                 for doc in DEFAULT_RECENT_DOCS
@@ -651,7 +636,7 @@ if current_tab == "Library":
             </div>
             {"".join([
                 f'<a href="?tab=Threads&q={urllib.parse.quote_plus(doc["query"])}" target="_self" class="doc-row-item">'
-                f'{SVG_DOC_ITEM}'
+                f'<img src="{URI_DOC_ITEM}" width="16" height="16" alt="Doc" />'
                 f'<div><span class="doc-row-title">{doc["title"]}</span> <span class="doc-row-dataset">· in {doc["dataset"]}</span></div>'
                 f'</a>'
                 for doc in DEFAULT_STARRED_DOCS
@@ -669,7 +654,7 @@ if current_tab == "Library":
             </div>
             {"".join([
                 f'<a href="?tab=Threads&q={urllib.parse.quote_plus(doc["query"])}" target="_self" class="doc-row-item">'
-                f'{SVG_DOC_ITEM}'
+                f'<img src="{URI_DOC_ITEM}" width="16" height="16" alt="Doc" />'
                 f'<div><span class="doc-row-title">{doc["title"]}</span> <span class="doc-row-dataset">· in {doc["dataset"]}</span></div>'
                 f'</a>'
                 for doc in DEFAULT_USER_DOCS
@@ -687,19 +672,21 @@ if current_tab == "Library":
         filtered_datasets = [d for d in filtered_datasets if term in d["name"].lower()]
 
     for ds in filtered_datasets:
-        count_chip = f'<span class="meta-chip">{SVG_CUBE} {ds["count"]}</span>' if ds.get("count") else ""
+        count_chip = f'<span class="meta-chip"><img src="{URI_CUBE}" width="14" height="14" alt="Cube" /> {ds["count"]}</span>' if ds.get("count") else ""
         ds_html = f"""
         <div class="dataset-item-row">
             <div class="dataset-left-info">
-                <div class="dataset-square-icon">{SVG_DATASET}</div>
+                <div class="dataset-square-icon">
+                    <img src="{URI_DATASET}" width="18" height="18" alt="Dataset" />
+                </div>
                 <div class="dataset-name-text">{ds["name"]}</div>
             </div>
             <div class="dataset-right-meta">
                 {count_chip}
-                <span class="meta-chip">{SVG_LAYERS} {ds["chunks"]}</span>
-                <span class="meta-chip">{SVG_CLOCK} {ds["date"]}</span>
+                <span class="meta-chip"><img src="{URI_LAYERS}" width="14" height="14" alt="Layers" /> {ds["chunks"]}</span>
+                <span class="meta-chip"><img src="{URI_CLOCK}" width="14" height="14" alt="Clock" /> {ds["date"]}</span>
                 <a href="?tab=Threads&q={urllib.parse.quote_plus(f'Tell me about {ds["name"]}')}" target="_self">
-                    {SVG_PLUS_CIRCLE}
+                    <img src="{URI_PLUS_CIRCLE}" width="18" height="18" alt="Add" />
                 </a>
             </div>
         </div>
@@ -710,7 +697,7 @@ if current_tab == "Library":
 # -----------------------------------------------------------------------------
 # View: Threads (Q&A Assistant & Pipeline Trace)
 # -----------------------------------------------------------------------------
-elif current_tab == "Threads":
+elif nav_tab == "Threads":
     st.markdown("### Technical Documentation Assistant")
     st.caption("Self-corrective RAG powered by LangGraph, ChromaDB, and Groq Llama 3.3.")
 
@@ -830,7 +817,7 @@ elif current_tab == "Threads":
 # -----------------------------------------------------------------------------
 # View: Models & Architecture
 # -----------------------------------------------------------------------------
-elif current_tab == "Models":
+elif nav_tab == "Models":
     st.markdown("### Models & System Architecture")
     st.caption("Deterministic StateGraph orchestrated by LangGraph with binary grading and self-correction.")
 
@@ -865,7 +852,7 @@ elif current_tab == "Models":
 # -----------------------------------------------------------------------------
 # View: Smartpages
 # -----------------------------------------------------------------------------
-elif current_tab == "Smartpages":
+elif nav_tab == "Smartpages":
     st.markdown("### Smartpages · Corpus Browser")
 
     docs_data = fetch_documents(BACKEND_URL)
@@ -896,8 +883,8 @@ elif current_tab == "Smartpages":
 # -----------------------------------------------------------------------------
 # View: Home & Report
 # -----------------------------------------------------------------------------
-elif current_tab in ("Home", "Report"):
-    st.markdown(f"### {current_tab} Overview")
+elif nav_tab in ("Home", "Report"):
+    st.markdown(f"### {nav_tab} Overview")
 
     k1, k2, k3 = st.columns(3)
     k1.metric("Indexed Documents", docs_count, border=True)
