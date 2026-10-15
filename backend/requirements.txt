@@ -1,0 +1,30 @@
+# Core Web API & Validation
+fastapi>=0.140.0
+uvicorn[standard]>=0.50.0
+pydantic>=2.14.0
+pydantic-settings>=2.16.0
+python-multipart>=0.0.30
+python-dotenv>=1.2.0
+
+# LangChain & LangGraph Orchestration (Official 1.0 LTS)
+langchain>=1.4.0
+langgraph>=1.2.0
+langchain-core>=1.6.0
+langchain-community>=0.4.0
+
+# LLM Providers
+langchain-openai>=1.7.0
+langchain-google-genai>=4.4.0
+langchain-groq>=1.1.0
+
+# Vector Store & Embeddings
+chromadb>=1.5.0
+langchain-chroma>=1.1.0
+
+# Observability & Fallback Search
+langsmith>=0.14.0
+tavily-python>=0.8.0
+
+# Testing & Development
+pytest>=9.0.0
+pytest-asyncio>=1.4.0

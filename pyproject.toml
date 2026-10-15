@@ -1,0 +1,43 @@
+[project]
+name = "rag-technical-assistant"
+version = "0.1.0"
+description = "Self-Corrective RAG Technical Documentation Assistant built with LangGraph and FastAPI"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "chromadb>=1.5.0",
+    "fastapi>=0.140.0",
+    "httpx>=0.28.0",
+    "langchain>=1.4.0",
+    "langchain-chroma>=1.1.0",
+    "langchain-community>=0.4.0",
+    "langchain-core>=1.6.0",
+    "langchain-google-genai>=4.4.0",
+    "langchain-groq>=1.1.0",
+    "langchain-openai>=1.7.0",
+    "langgraph>=1.2.0",
+    "pydantic>=2.14.0",
+    "pydantic-settings>=2.16.0",
+    "python-dotenv>=1.2.0",
+    "python-multipart>=0.0.30",
+    "tavily-python>=0.8.0",
+    "uvicorn[standard]>=0.50.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.3",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.7.0",
+]
+
+[tool.uv]
+managed = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["backend/tests"]
