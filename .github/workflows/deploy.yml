@@ -99,16 +99,17 @@ jobs:
           EOF
           chmod 600 ~/.ssh/config
 
-      - name: Create Secret in Cluster RAM (Zero Disk Exposure)
+      - name: Decrypt ENV.encrypted in RAM and Deploy Secret
         env:
-          GROQ_KEY: ${{ secrets.GROQ_API_KEY }}
+          DECRYPTION_KEY: ${{ secrets.DECRYPTION_KEY }}
           SSHPASS: ${{ secrets.NST_SSH_PASSWORD }}
         run: |
-          # Generate secret manifest purely in memory (dry-run) and pipe directly into remote cluster
-          sshpass -e ssh nst-n1 "KUBECONFIG=~/.kube/config kubectl create secret generic express-rag-secret \
-            --namespace=s-harsh \
-            --from-literal=GROQ_API_KEY=\"$GROQ_KEY\" \
-            --dry-run=client -o yaml | KUBECONFIG=~/.kube/config kubectl apply -f -"
+          # Decrypt ENV.encrypted in runner memory and stream directly into remote kubectl
+          openssl enc -d -aes-256-cbc -pbkdf2 -in ENV.encrypted -k "$DECRYPTION_KEY" | \
+            sshpass -e ssh nst-n1 "KUBECONFIG=~/.kube/config kubectl create secret generic express-rag-secret \
+              --namespace=s-harsh \
+              --from-env-file=/dev/stdin \
+              --dry-run=client -o yaml | KUBECONFIG=~/.kube/config kubectl apply -f -"
 
       - name: Apply ConfigMap, Service, Ingress, and Deployment
         env:
