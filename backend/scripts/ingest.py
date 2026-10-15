@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from backend.app.core.config import get_settings
 from backend.app.services.database import SQLiteDatabaseService
-from backend.app.services.embeddings import SentenceTransformerEmbeddingsService
+from backend.app.services.embeddings import GeminiEmbeddingsService
 from backend.app.services.ingestion import IngestionService
 from backend.app.services.vector_store import ChromaVectorStoreService
 
@@ -41,8 +41,11 @@ def main() -> None:
     args = parser.parse_args()
     settings = get_settings()
 
-    logger.info("Initializing embedding model: %s", settings.embedding_model)
-    embeddings = SentenceTransformerEmbeddingsService(settings.embedding_model)
+    logger.info("Initializing embedding model: %s", settings.gemini_embedding_model)
+    embeddings = GeminiEmbeddingsService(
+        api_key=settings.gemini_api_key,
+        model_name=settings.gemini_embedding_model,
+    )
 
     logger.info("Initializing vector store: %s (collection: %s)", settings.chroma_dir, settings.chroma_collection)
     vector_store = ChromaVectorStoreService(settings.chroma_dir, settings.chroma_collection)

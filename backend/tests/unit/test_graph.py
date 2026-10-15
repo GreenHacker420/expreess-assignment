@@ -7,6 +7,16 @@ from backend.app.graph.state import create_initial_state
 from backend.app.services.llm import LLMTimeoutError, LLMUpstreamError, MockLLMService
 
 
+class FakeWebSearch:
+    def __init__(self, results):
+        self.results = results
+        self.queries = []
+
+    async def search(self, query: str, max_results: int = 5):
+        self.queries.append(query)
+        return self.results[:max_results]
+
+
 @pytest.mark.asyncio
 async def test_relevant_chunks_route_to_generation(mock_embeddings, mock_vector_store):
     # Setup 1 stored chunk
@@ -54,6 +64,36 @@ async def test_irrelevant_chunks_trigger_rewriting_until_exhausted(mock_embeddin
     assert result["retry_count"] == 2
     assert len(result["citations"]) == 0
     assert "unable to answer" in result["answer"].lower()
+
+
+@pytest.mark.asyncio
+async def test_web_fallback_runs_after_corpus_retries_and_cites_url(mock_embeddings, mock_vector_store):
+    web = FakeWebSearch([{
+        "title": "FastAPI External Docs",
+        "url": "https://fastapi.tiangolo.com/tutorial/",
+        "content": "FastAPI supports dependency injection for shared logic.",
+    }])
+    llm = MockLLMService(default_relevant=True, generation_labels=["S1"])
+    graph = build_rag_graph(llm, mock_embeddings, mock_vector_store, web_search=web)
+
+    result = await graph.ainvoke(create_initial_state("How does dependency injection work?", max_retries=0))
+
+    assert len(web.queries) == 1
+    assert result["status"] == "answered"
+    assert result["web_fallback_used"] is True
+    assert result["citations"][0]["source"] == "https://fastapi.tiangolo.com/tutorial/"
+
+
+@pytest.mark.asyncio
+async def test_web_fallback_disabled_fails_closed_without_loop(mock_embeddings, mock_vector_store):
+    graph = build_rag_graph(MockLLMService(default_relevant=False), mock_embeddings, mock_vector_store)
+
+    result = await graph.ainvoke(create_initial_state("Unknown topic", max_retries=0))
+
+    assert result["status"] == "insufficient_context"
+    assert result["web_search_attempted"] is True
+    assert result["web_fallback_used"] is False
+    assert result["retrieval_attempts"] == 1
 
 
 @pytest.mark.asyncio
@@ -157,6 +197,124 @@ async def test_provider_timeout_is_treated_as_operational_error(mock_embeddings,
         await graph.ainvoke(state)
 
 
+@pytest.mark.asyncio
+async def test_grounding_failure_causes_one_regeneration_then_accepts(mock_embeddings, mock_vector_store):
+    mock_vector_store.add_chunks(
+        chunk_ids=["grounded_chunk"],
+        documents=["FastAPI uses Depends to declare a dependency."],
+        metadatas=[{"title": "Dependencies", "section": "Depends", "source": "dependencies.md"}],
+        embeddings=[mock_embeddings.embed_query("dependency")],
+    )
+    llm = MockLLMService()
+    llm.grounding_failures_remaining = 1
+    graph = build_rag_graph(llm, mock_embeddings, mock_vector_store)
+
+    result = await graph.ainvoke(create_initial_state("How do I declare a dependency?"))
+
+    assert result["status"] == "answered"
+    assert result["generation_attempts"] == 2
+    assert result["grounding_result"]["supported"] is True
+
+
+@pytest.mark.asyncio
+async def test_persistently_ungrounded_answer_fails_closed(mock_embeddings, mock_vector_store):
+    mock_vector_store.add_chunks(
+        chunk_ids=["ungrounded_chunk"],
+        documents=["FastAPI uses Depends to declare a dependency."],
+        metadatas=[{"title": "Dependencies", "section": "Depends", "source": "dependencies.md"}],
+        embeddings=[mock_embeddings.embed_query("dependency")],
+    )
+    llm = MockLLMService(grounding_supported=False)
+    graph = build_rag_graph(llm, mock_embeddings, mock_vector_store)
+
+    result = await graph.ainvoke(create_initial_state("How do I declare a dependency?"))
+
+    assert result["status"] == "insufficient_context"
+    assert result["generation_attempts"] == 2
+    assert result["citations"] == []
+
+
+@pytest.mark.asyncio
+async def test_incomplete_generation_triggers_bounded_crag_retrieval(mock_embeddings, mock_vector_store):
+    mock_vector_store.add_chunks(
+        chunk_ids=["incomplete_chunk"],
+        documents=["FastAPI supports path parameters."],
+        metadatas=[{"title": "Paths", "section": "Overview", "source": "paths.md"}],
+        embeddings=[mock_embeddings.embed_query("path")],
+    )
+    graph = build_rag_graph(
+        MockLLMService(has_sufficient_context=False), mock_embeddings, mock_vector_store
+    )
+
+    result = await graph.ainvoke(create_initial_state("Explain this multi-part question", max_retries=1))
+
+    assert result["status"] == "insufficient_context"
+    assert result["retry_count"] == 1
+    assert result["retrieval_attempts"] == 2
+    assert result["generation_attempts"] == 0
+
+
+@pytest.mark.asyncio
+async def test_crag_retry_can_recover_after_first_incomplete_draft(mock_embeddings, mock_vector_store):
+    from backend.app.services.llm import GenerationOutput
+
+    class RecoveringLLM(MockLLMService):
+        def __init__(self):
+            super().__init__()
+            self.generation_calls = 0
+
+        async def generate_answer(self, question, labeled_context):
+            del question, labeled_context
+            self.generation_calls += 1
+            return GenerationOutput(
+                answer="FastAPI supports this behavior. [S1]",
+                cited_labels=["S1"],
+                has_sufficient_context=self.generation_calls > 1,
+            )
+
+    mock_vector_store.add_chunks(
+        chunk_ids=["recover_chunk"],
+        documents=["FastAPI supports path parameters."],
+        metadatas=[{"title": "Paths", "section": "Overview", "source": "paths.md"}],
+        embeddings=[mock_embeddings.embed_query("path")],
+    )
+    llm = RecoveringLLM()
+    graph = build_rag_graph(llm, mock_embeddings, mock_vector_store, top_k=1)
+
+    result = await graph.ainvoke(create_initial_state("How do paths work?", max_retries=1))
+
+    assert result["status"] == "answered"
+    assert result["retry_count"] == 1
+    assert result["generation_attempts"] == 1
+
+
+@pytest.mark.asyncio
+async def test_query_decomposition_merges_distinct_document_evidence(mock_embeddings):
+    class PerQueryVectorStore:
+        def __init__(self):
+            self.calls = 0
+
+        def search(self, query_embedding, top_k=5):
+            del query_embedding, top_k
+            self.calls += 1
+            chunk_id = f"aspect_{self.calls}"
+            return [{
+                "chunk_id": chunk_id,
+                "text": f"Evidence for aspect {self.calls}.",
+                "metadata": {"title": chunk_id, "section": "Overview", "source": f"{chunk_id}.md"},
+                "distance": 0.1,
+            }]
+
+    vector_store = PerQueryVectorStore()
+    llm = MockLLMService(retrieval_queries=["path parameter validation", "file upload handling"])
+    graph = build_rag_graph(llm, mock_embeddings, vector_store, top_k=1)
+
+    result = await graph.ainvoke(create_initial_state("Compare path parameters and file upload handling"))
+
+    assert vector_store.calls == 3  # primary query and two focused searches
+    assert {chunk["chunk_id"] for chunk in result["retrieved_chunks"]} == {"aspect_1", "aspect_2", "aspect_3"}
+
+
 def test_route_after_grading_logic():
     # Any relevant chunks -> generate
     s1 = {"relevant_chunks": [{"id": 1}], "retry_count": 0, "max_retries": 2}
@@ -169,6 +327,8 @@ def test_route_after_grading_logic():
     s3 = {"relevant_chunks": [], "retry_count": 1, "max_retries": 2}
     assert route_after_grading(s3) == "rewrite_query"
 
-    # No relevant chunks and retries >= max -> fallback
+    # No relevant chunks after corpus retries -> one optional web attempt
     s4 = {"relevant_chunks": [], "retry_count": 2, "max_retries": 2}
-    assert route_after_grading(s4) == "fallback"
+    assert route_after_grading(s4) == "web_search"
+    s5 = {**s4, "web_search_attempted": True}
+    assert route_after_grading(s5) == "fallback"

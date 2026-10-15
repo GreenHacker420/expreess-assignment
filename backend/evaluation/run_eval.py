@@ -16,8 +16,8 @@ from backend.app.core.config import get_settings
 from backend.app.graph.builder import build_rag_graph
 from backend.app.graph.state import create_initial_state
 from backend.app.services.database import SQLiteDatabaseService
-from backend.app.services.embeddings import SentenceTransformerEmbeddingsService
-from backend.app.services.llm import GroqLLMService, MockLLMService
+from backend.app.services.embeddings import GeminiEmbeddingsService, MockEmbeddingsService
+from backend.app.services.llm import MockLLMService, create_llm_service
 from backend.app.services.vector_store import ChromaVectorStoreService
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -38,27 +38,33 @@ async def evaluate_suite(
     questions = json.loads(questions_file.read_text(encoding="utf-8"))
 
     # Determine mode
-    has_key = bool(settings.groq_api_key and settings.groq_api_key.startswith("gsk_"))
+    configured_key = (
+        settings.gemini_api_key
+        if settings.llm_provider.strip().lower() in {"gemini", "google", "google_genai"}
+        else settings.groq_api_key
+    )
+    has_key = bool(configured_key)
     is_live = live_mode and has_key
 
     if live_mode and not has_key:
         logger.warning(
-            "Live evaluation requested but valid GROQ_API_KEY is not set. "
+            f"Live evaluation requested but no key is configured for {settings.llm_provider}. "
             "Running in OFFLINE MOCK MODE. Do not claim this ran with live credentials."
         )
         is_live = False
 
     logger.info("Initializing services for evaluation (is_live=%s)...", is_live)
-    embeddings = SentenceTransformerEmbeddingsService(settings.embedding_model)
+    if is_live and settings.gemini_api_key:
+        embeddings = GeminiEmbeddingsService(
+            api_key=settings.gemini_api_key,
+            model_name=settings.gemini_embedding_model,
+        )
+    else:
+        embeddings = MockEmbeddingsService()
     vector_store = ChromaVectorStoreService(settings.chroma_dir, settings.chroma_collection)
 
     if is_live:
-        llm = GroqLLMService(
-            api_key=settings.groq_api_key,
-            model=settings.llm_model,
-            temperature=settings.llm_temperature,
-            timeout_seconds=settings.llm_timeout_seconds,
-        )
+        llm = create_llm_service(settings)
     else:
         llm = MockLLMService()
 
@@ -73,7 +79,7 @@ async def evaluate_suite(
     results: List[Dict[str, Any]] = []
 
     print("\n" + "=" * 90)
-    print(f"RUNNING RAG BENCHMARK EVALUATION ({'LIVE GROQ: ' + settings.llm_model if is_live else 'OFFLINE MOCK MODE'})")
+    print(f"RUNNING RAG BENCHMARK EVALUATION ({'LIVE ' + settings.llm_provider.upper() if is_live else 'OFFLINE MOCK MODE'})")
     print("=" * 90)
 
     for item in questions:
@@ -157,7 +163,7 @@ async def evaluate_suite(
     report = {
         "evaluation_timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "mode": "live_groq" if is_live else "offline_mock",
-        "model": settings.llm_model if is_live else "MockLLMService",
+        "model": getattr(llm, "model_name", "MockLLMService"),
         "embedding_model": settings.embedding_model,
         "total_questions": total,
         "status_accuracy": round(matched / total, 3) if total else 0.0,
@@ -172,7 +178,7 @@ async def evaluate_suite(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run evaluation benchmark over 12 labeled questions.")
-    parser.add_argument("--live", action="store_true", help="Run against live Groq model using GROQ_API_KEY.")
+    parser.add_argument("--live", action="store_true", help="Run against the configured live LLM provider.")
     args = parser.parse_args()
 
     asyncio.run(evaluate_suite(live_mode=args.live))
