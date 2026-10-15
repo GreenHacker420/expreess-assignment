@@ -50,7 +50,8 @@ def render_corpus_tab():
                     </div>
                     """
                     st.html(card_header_html)
-                    st.caption(f"**Source:** [{source}]({source}) · **Indexed:** {updated_at}")
+                    source_label = f"[{source}]({source})" if source.startswith("http") else f"`{source}`"
+                    st.caption(f"**Source:** {source_label} · **Indexed:** {updated_at}")
 
                     if st.button("Ask a question about this doc", key=f"ask_doc_{doc_id}", width="stretch"):
                         st.session_state["active_question"] = f"Explain how {title} works in FastAPI with a code example."

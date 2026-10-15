@@ -73,13 +73,17 @@ def render_workflow_tab():
         """
         st.html(schema_header_html)
         st.code("""class GraphState(TypedDict):
-    question: str
-    transformed_query: Optional[str]
-    query_type: Optional[str]
-    documents: List[Document]
-    relevant_documents: List[Document]
-    generation: Optional[str]
-    citations: List[CitationSchema]
+    query_id: str
+    original_question: str
+    retrieval_query: str
+    query_type: str
+    query_history: List[str]
+    retrieved_chunks: List[Dict[str, Any]]
+    relevant_chunks: List[Dict[str, Any]]
+    grades: List[Dict[str, Any]]
     retry_count: int
-    web_fallback_used: bool
+    max_retries: int
+    retrieval_attempts: int
+    answer: str
+    citations: List[Dict[str, Any]]
     status: Literal["answered", "insufficient_context"]""", language="python")

@@ -31,14 +31,18 @@ def render_qa_tab():
     st.html(title_row_html)
     st.caption("Ask questions about the indexed FastAPI documentation. The assistant evaluates document relevance and self-corrects with query rewrites if context is insufficient.")
 
-    # Sample Questions Row
+    # Sample Questions Row using st.pills
     st.markdown("<p style='font-size: 13px; font-weight: 600; color: #086288; margin-bottom: 6px;'>Quick Sample Questions:</p>", unsafe_allow_html=True)
-    cols = st.columns(len(SAMPLE_QUESTIONS))
-    for i, q in enumerate(SAMPLE_QUESTIONS):
-        short_label = q.split("?")[0].replace("How do I ", "").replace("What is the ", "")
-        if cols[i].button(short_label[:22] + "...", key=f"sample_{i}", width="stretch"):
-            st.session_state["active_question"] = q
-            st.rerun()
+    selected_sample = st.pills(
+        "Sample Questions",
+        options=SAMPLE_QUESTIONS,
+        selection_mode="single",
+        label_visibility="collapsed",
+        key="sample_questions_pill",
+    )
+    if selected_sample and selected_sample != st.session_state.get("active_question"):
+        st.session_state["active_question"] = selected_sample
+        st.rerun()
 
     # Question Input
     user_query = st.text_area(
@@ -119,12 +123,26 @@ def render_qa_tab():
                 raw_t = cit.get("title", "Document")
                 clean_t = format_doc_title(raw_t)
                 clean_sec = format_doc_title(cit.get("section", "General"))
+                source_val = cit.get("source", "")
+                if source_val.startswith("http"):
+                    source_disp = f'<a href="{source_val}" target="_blank" style="color: #086288; text-decoration: underline;">{source_val}</a>'
+                else:
+                    source_disp = f'<code>{source_val}</code>'
+
                 cit_html = f"""
                 <div class="citation-box">
-                    <span class="citation-tag">[{cit.get('label', 'S1')}]</span>
-                    <strong style="color: #086288;">{clean_t}</strong> — <em>{clean_sec}</em>
-                    <div style="font-size: 11.5px; color: #4D8DBA; margin-top: 4px;">
-                        Chunk ID: <code>{cit.get('chunk_id', '')}</code> · Source: <a href="{cit.get('source', '')}" target="_blank" style="color: #086288; font-weight: 500;">{cit.get('source', '')}</a>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                        <div>
+                            <span class="citation-tag">[{cit.get('label', 'S1')}]</span>
+                            <strong style="color: #086288; font-size: 14px;">{clean_t}</strong>
+                            <span style="color: #4D8DBA; font-size: 13px; margin-left: 6px;">&bull; {clean_sec}</span>
+                        </div>
+                        <span style="font-size: 11px; background: #EBF5FB; color: #086288; padding: 2px 8px; border-radius: 4px; border: 1px solid #97D7FF; font-family: monospace;">
+                            {cit.get('chunk_id', '')}
+                        </span>
+                    </div>
+                    <div style="font-size: 12px; color: #4D8DBA; margin-top: 6px;">
+                        Source: {source_disp}
                     </div>
                 </div>
                 """
@@ -133,7 +151,7 @@ def render_qa_tab():
             st.info("No specific document chunks were cited for this response.")
 
         # User Feedback Section
-        st.markdown("<h5 style='color: #086288; margin-top: 24px; margin-bottom: 8px;'>Was this answer helpful?</h5>", unsafe_allow_html=True)
+        st.markdown("<h5 style='color: #086288; margin-top: 24px; margin-bottom: 10px;'>Was this answer helpful?</h5>", unsafe_allow_html=True)
         query_id = res.get("query_id", "")
         fb_status = st.session_state.get("feedback_status")
 
@@ -145,13 +163,14 @@ def render_qa_tab():
             </div>
             """, unsafe_allow_html=True)
         else:
-            fb_col1, fb_col2, _ = st.columns([1.2, 1.2, 5.6])
-            if fb_col1.button("Helpful", key="fb_up", width="stretch"):
+            fb_col1, fb_col2, _ = st.columns([1.5, 1.5, 5])
+            if fb_col1.button("Helpful (Yes)", key="fb_up", width="stretch"):
                 if submit_feedback(query_id, "up", "Helpful answer"):
                     st.session_state["feedback_status"] = "helpful"
                     st.rerun()
 
-            if fb_col2.button("Irrelevant", key="fb_down", width="stretch"):
+            if fb_col2.button("Irrelevant (No)", key="fb_down", width="stretch"):
                 if submit_feedback(query_id, "down", "Needs improvement"):
                     st.session_state["feedback_status"] = "needs improvement"
                     st.rerun()
+

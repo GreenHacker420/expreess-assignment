@@ -21,8 +21,8 @@ CUSTOM_CSS = """
 
 .main .block-container {
     max-width: 1200px !important;
-    padding-top: 1.5rem !important;
-    padding-bottom: 3.5rem !important;
+    padding-top: 1rem !important;
+    padding-bottom: 2.5rem !important;
 }
 
 /* Header Container */
@@ -32,31 +32,31 @@ CUSTOM_CSS = """
     justify-content: space-between;
     background: #FFFFFF;
     border: 1px solid #D8ECF8;
-    border-radius: 16px;
-    padding: 20px 24px;
-    margin-bottom: 24px;
-    box-shadow: 0 4px 16px rgba(8, 98, 136, 0.05);
+    border-radius: 14px;
+    padding: 14px 22px;
+    margin-bottom: 18px;
+    box-shadow: 0 2px 10px rgba(8, 98, 136, 0.04);
 }
 
 .top-brand {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
 }
 
 .top-brand-icon {
-    width: 46px;
-    height: 46px;
+    width: 42px;
+    height: 42px;
     background: #EBF5FB;
     border: 1px solid #97D7FF;
-    border-radius: 12px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
 .top-brand-title {
-    font-size: 20px;
+    font-size: 19px;
     font-weight: 700;
     color: #086288;
     margin: 0;
@@ -64,9 +64,9 @@ CUSTOM_CSS = """
 }
 
 .top-brand-subtitle {
-    font-size: 13px;
+    font-size: 12.5px;
     color: #4D8DBA;
-    margin: 3px 0 0 0;
+    margin: 2px 0 0 0;
 }
 
 .header-badges {
@@ -82,9 +82,9 @@ CUSTOM_CSS = """
     background: #EBF5FB;
     border: 1px solid #97D7FF;
     color: #086288;
-    padding: 6px 14px;
+    padding: 5px 13px;
     border-radius: 9999px;
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 600;
 }
 
@@ -95,9 +95,9 @@ CUSTOM_CSS = """
     background: #FFEFC4;
     border: 1px solid #F5DC9A;
     color: #614605;
-    padding: 6px 14px;
+    padding: 5px 13px;
     border-radius: 9999px;
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 600;
 }
 
@@ -116,22 +116,22 @@ CUSTOM_CSS = """
 }
 
 /* =========================================================================
-   Sleek Modern Tab Bar (Fixed: Zero Clashing Blocks, Crisp Modern Underline)
+   Sleek Modern Tab Bar
    ========================================================================= */
 .stTabs [data-baseweb="tab-list"] {
     gap: 8px !important;
     background-color: transparent !important;
     border-bottom: 2px solid #D8ECF8 !important;
     padding: 0 4px !important;
-    margin-bottom: 24px !important;
+    margin-bottom: 20px !important;
 }
 
 .stTabs [data-baseweb="tab"] {
     background-color: transparent !important;
     border: none !important;
     border-radius: 6px 6px 0 0 !important;
-    padding: 10px 18px !important;
-    font-size: 14.5px !important;
+    padding: 9px 18px !important;
+    font-size: 14px !important;
     font-weight: 500 !important;
     color: #4D8DBA !important;
     transition: color 0.15s ease, background-color 0.15s ease !important;
@@ -142,14 +142,12 @@ CUSTOM_CSS = """
     background-color: #EBF5FB !important;
 }
 
-/* Active tab text */
 .stTabs [data-baseweb="tab"][aria-selected="true"] {
     color: #086288 !important;
     font-weight: 700 !important;
     background-color: transparent !important;
 }
 
-/* Crisp Active Indicator Bar */
 .stTabs [data-baseweb="tab-highlight"] {
     background-color: #086288 !important;
     height: 3px !important;
@@ -160,17 +158,17 @@ CUSTOM_CSS = """
 .metric-pills {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-    margin: 16px 0;
+    gap: 8px;
+    margin: 14px 0;
 }
 
 .metric-pill {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 14px;
-    border-radius: 8px;
-    font-size: 12.5px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
     font-weight: 600;
 }
 
@@ -187,9 +185,9 @@ CUSTOM_CSS = """
 }
 
 .pill-latency {
-    background: #FFFFFF;
-    border: 1px solid #D8ECF8;
-    color: #4D8DBA;
+    background: #EBF5FB;
+    border: 1px solid #97D7FF;
+    color: #086288;
 }
 
 .pill-status {
@@ -198,14 +196,26 @@ CUSTOM_CSS = """
     color: #1B6338;
 }
 
+/* Inline Code Element Styling */
+code:not(pre code) {
+    font-size: 88% !important;
+    padding: 2px 6px !important;
+    margin: 0 2px !important;
+    background-color: #EBF5FB !important;
+    border: 1px solid #D8ECF8 !important;
+    border-radius: 4px !important;
+    color: #086288 !important;
+    font-family: 'JetBrains Mono', Consolas, monospace !important;
+}
+
 /* Citations Box */
 .citation-box {
     background: #FFFFFF;
     border: 1px solid #D8ECF8;
     border-left: 4px solid #086288;
     border-radius: 8px;
-    padding: 12px 18px;
-    margin-top: 10px;
+    padding: 12px 16px;
+    margin-top: 8px;
     font-size: 13px;
     color: #0E2A38;
     box-shadow: 0 1px 4px rgba(8, 98, 136, 0.03);
@@ -228,7 +238,7 @@ CUSTOM_CSS = """
     background: #FFFFFF;
     border: 1px solid #D8ECF8;
     border-radius: 12px;
-    padding: 18px 16px;
+    padding: 16px 14px;
     text-align: center;
     box-shadow: 0 2px 6px rgba(8, 98, 136, 0.04);
     height: 100%;
@@ -237,7 +247,7 @@ CUSTOM_CSS = """
 .flow-node-title {
     font-weight: 700;
     color: #086288;
-    font-size: 14.5px;
+    font-size: 14px;
     margin-bottom: 6px;
 }
 
@@ -245,6 +255,37 @@ CUSTOM_CSS = """
     font-size: 12px;
     color: #4D8DBA;
     line-height: 1.5;
+}
+
+/* Style Streamlit Pills Component */
+[data-testid="stPills"] {
+    gap: 8px !important;
+    margin-bottom: 8px !important;
+}
+
+[data-testid="stPills"] button {
+    background-color: #FFFFFF !important;
+    border: 1px solid #97D7FF !important;
+    color: #086288 !important;
+    border-radius: 9999px !important;
+    font-size: 12.5px !important;
+    font-weight: 500 !important;
+    padding: 6px 14px !important;
+    box-shadow: 0 1px 3px rgba(8, 98, 136, 0.05) !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+[data-testid="stPills"] button:hover {
+    background-color: #EBF5FB !important;
+    border-color: #4D8DBA !important;
+    color: #086288 !important;
+}
+
+[data-testid="stPills"] button[aria-selected="true"] {
+    background-color: #086288 !important;
+    border-color: #086288 !important;
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
 }
 
 /* Buttons */

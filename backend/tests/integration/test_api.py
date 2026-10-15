@@ -46,6 +46,8 @@ async def test_ingest_and_query_success_flow(async_client: AsyncClient):
     assert ingest_data["status"] == "success"
     assert ingest_data["indexed_documents"] == 1
     assert ingest_data["total_chunks"] >= 1
+    assert ingest_data["indexed_chunks"] == ingest_data["total_chunks"]
+    assert ingest_data["document_id"] is not None
 
     # 2. Check GET /documents
     docs_res = await async_client.get("/documents")
@@ -120,3 +122,13 @@ async def test_ingest_empty_file_returns_422(async_client: AsyncClient):
     response = await async_client.post("/ingest", files=files)
     assert response.status_code == 422
     assert "empty" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_ingest_json_invalid_url_returns_422(async_client: AsyncClient):
+    response = await async_client.post(
+        "/ingest",
+        json={"url": "ftp://not-supported-scheme.com/doc.md", "source_type": "url"},
+    )
+    assert response.status_code == 422
+    assert "url must start with http" in response.json()["detail"].lower()

@@ -11,6 +11,7 @@ from backend.app.schemas.schemas import (
     IngestResponse,
     QueryRequest,
     QueryResponse,
+    UrlIngestRequest,
 )
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "IngestResponse",
     "QueryRequest",
     "QueryResponse",
+    "UrlIngestRequest",
 ]

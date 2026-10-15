@@ -44,6 +44,15 @@ class QueryResponse(BaseModel):
     query_type: str = Field(description="Classified query intent")
 
 
+class UrlIngestRequest(BaseModel):
+    """Schema for document ingestion via URL."""
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    url: str = Field(min_length=5, max_length=2000, description="Web URL or raw Markdown/text source to ingest")
+    title: Optional[str] = Field(default=None, max_length=200, description="Optional document title override")
+    source_type: Optional[str] = Field(default=None, max_length=50, description="Optional source type identifier")
+
+
 class DocumentIngestDetail(BaseModel):
     """Detail for a single ingested document."""
     document_id: str
@@ -54,10 +63,12 @@ class DocumentIngestDetail(BaseModel):
 
 
 class IngestResponse(BaseModel):
-    """Response returned upon multipart document upload."""
+    """Response returned upon document upload or URL ingestion."""
     status: str = Field(description="Ingestion outcome status")
     indexed_documents: int = Field(description="Count of processed documents")
     total_chunks: int = Field(description="Total active chunks across processed documents")
+    indexed_chunks: Optional[int] = Field(default=None, description="Number of indexed chunks for assignment spec parity")
+    document_id: Optional[str] = Field(default=None, description="Primary document ID for assignment spec parity")
     details: List[DocumentIngestDetail] = Field(default_factory=list)
 
 

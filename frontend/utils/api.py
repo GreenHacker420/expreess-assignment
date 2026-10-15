@@ -77,3 +77,18 @@ def upload_document(uploaded_file) -> Optional[Dict[str, Any]]:
     except Exception:
         pass
     return None
+
+
+def ingest_url(url: str, title: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Ingest a document from URL via /ingest/url."""
+    try:
+        resp = httpx.post(
+            f"{BACKEND_URL}/ingest/url",
+            json={"url": url, "title": title or None},
+            timeout=30.0,
+        )
+        if resp.is_success:
+            return resp.json()
+    except Exception:
+        pass
+    return None
