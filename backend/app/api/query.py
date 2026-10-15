@@ -110,4 +110,5 @@ async def query_documentation(
         retry_count=final_state["retry_count"],
         retrieval_attempts=final_state["retrieval_attempts"],
         query_type=final_state["query_type"],
+        grounding_verified=final_state.get("grounding_result", {}).get("supported") is True,
     )

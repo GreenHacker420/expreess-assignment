@@ -3,12 +3,18 @@
 from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # LLM Settings (Groq)
+    # LLM provider settings
+    llm_provider: str = Field(default="gemini", alias="LLM_PROVIDER")
+    gemini_api_key: Optional[str] = Field(
+        default=None, validation_alias=AliasChoices("GEMINI_API_KEY", "GOOGLE_API_KEY")
+    )
+    gemini_model: str = Field(default="gemini-3.8-flash", alias="GEMINI_MODEL")
+    gemini_fast_model: str = Field(default="gemini-3.8-flash", alias="GEMINI_FAST_MODEL")
     groq_api_key: Optional[str] = Field(default=None, alias="GROQ_API_KEY")
     llm_model: str = Field(default="openai/gpt-oss-120b", alias="LLM_MODEL")
     fast_llm_model: str = Field(default="openai/gpt-oss-120b", alias="FAST_LLM_MODEL")

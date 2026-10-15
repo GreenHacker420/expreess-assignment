@@ -4,7 +4,12 @@ from typing import Any, Optional
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 
-from backend.app.graph.nodes import RAGNodeFactory, route_after_grading
+from backend.app.graph.nodes import (
+    RAGNodeFactory,
+    route_after_generation,
+    route_after_grading,
+    route_after_grounding,
+)
 from backend.app.graph.state import GraphState
 from backend.app.services.embeddings import EmbeddingsService
 from backend.app.services.llm import LLMService
@@ -36,6 +41,7 @@ def build_rag_graph(
     workflow.add_node("grade_documents", factory.grade_documents)
     workflow.add_node("rewrite_query", factory.rewrite_query)
     workflow.add_node("generate", factory.generate)
+    workflow.add_node("check_grounding", factory.check_grounding)
     workflow.add_node("fallback", factory.fallback)
 
     # Register Direct Edges
@@ -43,7 +49,6 @@ def build_rag_graph(
     workflow.add_edge("analyze_query", "retrieve")
     workflow.add_edge("retrieve", "grade_documents")
     workflow.add_edge("rewrite_query", "retrieve")
-    workflow.add_edge("generate", END)
     workflow.add_edge("fallback", END)
 
     # Register Conditional Edge after grade_documents
@@ -55,6 +60,16 @@ def build_rag_graph(
             "rewrite_query": "rewrite_query",
             "fallback": "fallback",
         },
+    )
+    workflow.add_conditional_edges(
+        "generate",
+        route_after_generation,
+        {"grounding": "check_grounding", "correct": "rewrite_query", "fallback": "fallback"},
+    )
+    workflow.add_conditional_edges(
+        "check_grounding",
+        route_after_grounding,
+        {"accept": END, "regenerate": "generate", "fallback": "fallback"},
     )
 
     # Compile with checkpointer support for state persistence and time-travel debugging

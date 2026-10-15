@@ -46,12 +46,18 @@ class GraphState(TypedDict):
     query_id: str
     original_question: str
     retrieval_query: str
+    retrieval_queries: List[str]
     query_type: str
     query_history: List[str]
     retrieved_chunks: List[Dict[str, Any]]
     relevant_chunks: List[Dict[str, Any]]
     grades: List[Dict[str, Any]]
     retry_count: int
+    generation_attempts: int
+    grounding_feedback: str
+    grounding_result: Dict[str, Any]
+    labeled_context: str
+    generation_needs_retrieval: bool
     max_retries: int
     retrieval_attempts: int
     answer: str
@@ -72,12 +78,18 @@ def create_initial_state(
         query_id=qid,
         original_question=cleaned_question,
         retrieval_query=cleaned_question,
+        retrieval_queries=[cleaned_question],
         query_type="conceptual",
         query_history=[],
         retrieved_chunks=[],
         relevant_chunks=[],
         grades=[],
         retry_count=0,
+        generation_attempts=0,
+        grounding_feedback="",
+        grounding_result={},
+        labeled_context="",
+        generation_needs_retrieval=False,
         max_retries=max_retries,
         retrieval_attempts=0,
         answer="",

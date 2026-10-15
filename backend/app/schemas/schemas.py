@@ -42,6 +42,10 @@ class QueryResponse(BaseModel):
     retry_count: int = Field(description="Number of query rewrites executed")
     retrieval_attempts: int = Field(description="Total retrieval executions")
     query_type: str = Field(description="Classified query intent")
+    grounding_verified: bool = Field(
+        default=False,
+        description="Whether the final cited answer passed the independent evidence-grounding check",
+    )
 
 
 class UrlIngestRequest(BaseModel):

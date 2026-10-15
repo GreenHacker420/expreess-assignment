@@ -16,7 +16,7 @@ from backend.app.schemas import HealthResponse
 from backend.app.services.database import SQLiteDatabaseService
 from backend.app.services.embeddings import SentenceTransformerEmbeddingsService
 from backend.app.services.ingestion import IngestionService
-from backend.app.services.llm import GroqLLMService
+from backend.app.services.llm import create_llm_service
 from backend.app.services.vector_store import ChromaVectorStoreService
 
 logger = logging.getLogger("backend_app")
@@ -54,13 +54,7 @@ async def lifespan(app: FastAPI):
         )
 
     if not hasattr(app.state, "llm"):
-        app.state.llm = GroqLLMService(
-            api_key=settings.groq_api_key,
-            model=settings.llm_model,
-            fast_model=settings.fast_llm_model,
-            temperature=settings.llm_temperature,
-            timeout_seconds=settings.llm_timeout_seconds,
-        )
+        app.state.llm = create_llm_service(settings)
 
     if not hasattr(app.state, "graph"):
         app.state.graph = build_rag_graph(

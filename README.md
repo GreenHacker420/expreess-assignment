@@ -33,7 +33,7 @@ The assistant executes a deterministic, self-correcting state graph implemented 
 ```mermaid
 flowchart TD
     START([START]) --> analyze_query[Node: analyze_query\nIntent classification & query rewriting]
-    analyze_query --> retrieve[Node: retrieve\nTop-k similarity search in ChromaDB]
+    analyze_query --> retrieve[Node: retrieve\nMulti-query vector search + reciprocal-rank merge]
     retrieve --> grade_documents[Node: grade_documents\nStructured LLM relevance scoring]
     
     grade_documents --> route_decision{route_after_grading}
@@ -43,19 +43,26 @@ flowchart TD
     route_decision -- "Exhausted (retries >= MAX)" --> fallback[Node: fallback\nSafe refusal, zero hallucination]
     
     rewrite_query --> retrieve
-    generate --> END([END])
+    generate --> generation_route{Evidence sufficient?}
+    generation_route -- "No; retries remain" --> rewrite_query
+    generation_route -- "Yes" --> grounding[Node: check_grounding\nSelf-RAG evidence verification]
+    grounding -- "Unsupported; first failure" --> generate
+    grounding -- "Supported" --> END([END])
+    grounding -- "Still unsupported" --> fallback
     fallback --> END([END])
 ```
 
 ### Graph Execution Nodes
 | Node | Responsibility | Output Invariants |
 |---|---|---|
-| **`analyze_query`** | Categorizes intent (`conceptual`, `how-to`, `troubleshooting`, `api_reference`) and optimizes semantic query formulation. | `query_type`, `transformed_query` |
-| **`retrieve`** | Executes cosine similarity search against ChromaDB, capturing chunk text and source metadata (`title`, `section`, `url`). | `retrieved_chunks` |
+| **`analyze_query`** | Categorizes intent and creates a primary query plus focused searches for distinct aspects of compound questions. | `query_type`, `retrieval_queries` |
+| **`retrieve`** | Searches each query, merges results with reciprocal-rank fusion, and preserves chunk metadata. | Deduplicated `retrieved_chunks` |
 | **`grade_documents`** | Evaluates document relevance using structured binary classification (`yes`/`no`) via LLM. Filters out noise. | `relevant_chunks` |
 | **`generate`** | Synthesizes a factual, grounded response citing retrieved source chunks explicitly using bracket labels (`[S1]`, `[S2]`). | `answer`, `citations`, `status="answered"` |
+| **`check_grounding`** | Uses a separate structured LLM judgment to check the answer claims against the cited context; permits one constrained regeneration. | `grounding_result`, bounded regeneration or safe fallback |
 | **`rewrite_query`** | Triggers when zero chunks pass relevance grading. Expands phrasing and loops back to `retrieve`. | `retry_count += 1`, `query_history` |
-| **`fallback`** | Reached when retries are exhausted or adversarial queries are detected. Returns safe refusal without hallucinating. | `answer`, `status="insufficient_context"` |
+| **CRAG correction** | Rewrites and retrieves again when grading rejects all chunks or generation identifies missing evidence, subject to `MAX_RETRIES`. | Bounded retrieval attempts |
+| **`fallback`** | Reached when retrieval retries are exhausted or answer grounding still fails. Returns safe refusal. | `answer`, `status="insufficient_context"` |
 
 ---
 
@@ -83,11 +90,12 @@ class GraphState(TypedDict):
 ```
 
 ### 2. Model Cascading (Cost & Latency Optimization)
-- **Fast / Lightweight Model (`FAST_LLM_MODEL`):** Used for document grading and query rewriting to minimize token overhead and latency.
-- **Frontier / Synthesis Model (`LLM_MODEL`):** Reserved strictly for final synthesis requiring nuanced reasoning and accurate citation synthesis.
+- **Fast Model (`GEMINI_FAST_MODEL`):** Used for query analysis, document grading, and query rewriting.
+- **Answer Model (`GEMINI_MODEL`):** Used for grounded answer synthesis and structured output.
+- Set `LLM_PROVIDER=groq` to use the optional Groq implementation and its `FAST_LLM_MODEL` / `LLM_MODEL` settings. Gemini is the default and reads `GEMINI_API_KEY` (or `GOOGLE_API_KEY`).
 
 ### 3. Bounded Loops (Cycle & Token Exhaustion Protection)
-Cyclic workflows can lead to runaway API bills if retrieval wanders. We enforce a hard ceiling (`MAX_RETRIES = 2`). If relevance is not achieved within 3 total retrieval attempts, the conditional edge routes deterministically to `fallback -> END`.
+Cyclic workflows can lead to runaway API bills if retrieval wanders. Retrieval correction is bounded by `MAX_RETRIES = 2` (at most 3 retrieval attempts). Self-RAG permits one regeneration after an unsupported draft; a second failed check routes to `fallback -> END`.
 
 ### 4. Persistence & Checkpointing
 `build_rag_graph` supports optional LangGraph checkpointers (such as `MemorySaver` or database checkpointers). This facilitates:
@@ -96,7 +104,7 @@ Cyclic workflows can lead to runaway API bills if retrieval wanders. We enforce 
 
 ### 5. Deep Observability & Resilient Backoff
 - Integrated with **LangSmith** via standard environment flags (`LANGSMITH_TRACING=true`).
-- `GroqLLMService` features automated **exponential backoff with jitter** (`_invoke_with_backoff`) handling `429 RateLimitError` and token-per-minute (TPM) throttling transparently.
+- The selected provider service retries rate-limit responses with bounded exponential backoff.
 
 ---
 
@@ -147,6 +155,10 @@ expreess-assignment/
 │   ├── evaluation/
 │   │   ├── questions.json     # 12 labeled benchmark questions
 │   │   ├── run_eval.py        # Automated evaluation benchmark harness
+│   │   ├── golden_cases.json  # 14 source- and answer-labeled cases
+│   │   ├── golden_cases.xlsx  # Human-reviewable benchmark workbook
+│   │   ├── run_golden_eval.py # Live graph + retrieval evaluation
+│   │   └── run_api_eval.py    # FastAPI contract + golden API evaluation
 │   │   └── evaluation_results.json
 │   ├── scripts/
 │   │   ├── fetch_corpus.py    # Official docs scraper & manifest generator
@@ -182,10 +194,13 @@ cp .env.example .env
 ### 2. Configure API Keys
 Edit `.env` to include your credentials:
 ```env
-# Groq Cloud API Key
-GROQ_API_KEY="gsk_your_groq_api_key_here"
-LLM_MODEL="openai/gpt-oss-120b"
-FAST_LLM_MODEL="openai/gpt-oss-120b"
+# Gemini Developer API
+LLM_PROVIDER="gemini"
+GEMINI_API_KEY="your_gemini_api_key_here"
+GEMINI_MODEL="gemini-2.5-flash"
+GEMINI_FAST_MODEL="gemini-2.5-flash"
+
+# Optional Groq: set LLM_PROVIDER="groq" and configure GROQ_API_KEY / model names
 
 # Optional: LangSmith Tracing
 LANGSMITH_TRACING=false
@@ -218,7 +233,7 @@ Open [http://localhost:8501](http://localhost:8501) in your browser.
 
 | Method | Endpoint | Description | Sample Request / Response |
 |---|---|---|---|
-| `POST` | `/query` | Submit a question to the self-correcting RAG pipeline | **Request:** `{"question": "How do I declare path parameters?"}`<br/>**Response:** `{"query_id": "...", "status": "answered", "answer": "...", "citations": [...], "query_type": "how-to", "retries": 0}` |
+| `POST` | `/query` | Submit a question to the self-correcting RAG pipeline | **Request:** `{"question": "How do I declare path parameters?"}`<br/>**Response:** `{"query_id": "...", "status": "answered", "answer": "...", "citations": [...], "query_type": "how-to", "retry_count": 0, "grounding_verified": true}` |
 | `POST` | `/ingest` | Upload `.md` or `.txt` file to index | **Request:** `multipart/form-data` with `file`<br/>**Response:** `{"document_id": "...", "indexed_chunks": 18, "status": "indexed"}` |
 | `GET` | `/documents` | List all indexed documents and chunk counts | **Response:** `{"total_documents": 5, "documents": [{"document_id": "...", "title": "...", "chunk_count": 22}]}` |
 | `POST` | `/feedback` | Submit thumbs up/down user feedback | **Request:** `{"query_id": "...", "rating": 1, "comment": "Accurate code sample"}`<br/>**Response:** `{"status": "recorded"}` |
@@ -246,10 +261,16 @@ The Streamlit frontend (`frontend/app.py`) provides three purpose-built tabs:
 
 The repository includes a **14-case golden set** in [`backend/evaluation/golden_cases.json`](backend/evaluation/golden_cases.json) and a reviewable workbook in [`backend/evaluation/golden_cases.xlsx`](backend/evaluation/golden_cases.xlsx). Cases cover direct questions, paraphrases, multi-document synthesis, adjacent and unrelated unsupported topics, and prompt injection. Supported cases define expected corpus sources and answer fact groups; unsupported cases expect a safe refusal.
 
+Run a fast semantic retrieval check locally, without using LLM requests, with:
+
+```bash
+uv run python backend/evaluation/run_golden_eval.py --retrieval-only
+```
+
 The live graph evaluator reports status accuracy, top-k source recall, cited-source recall, heuristic fact coverage, citation-label integrity, retries, and latency:
 
 ```bash
-# Requires GROQ_API_KEY and a populated Chroma index
+# Requires the selected provider's API key and a populated Chroma index
 uv run python backend/evaluation/run_golden_eval.py
 ```
 
@@ -274,7 +295,7 @@ curl -i -X POST http://127.0.0.1:8000/query \
   -H 'Content-Type: application/json' -d '{"question":"   "}'
 ```
 
-The earlier 12-case harness ([`backend/evaluation/run_eval.py`](backend/evaluation/run_eval.py)) remains an **offline mock routing smoke test**. Its 12/12 result measures expected status and retry routing with canned model responses; it does not establish answer accuracy. Use the live golden evaluator for source and answer regression signals.
+The earlier 12-case harness ([`backend/evaluation/run_eval.py`](backend/evaluation/run_eval.py)) remains an **offline mock routing smoke test**. Its historical 12/12 result measures expected status and retry routing with canned model responses; it does not establish answer accuracy. Use the live golden evaluator for source and answer regression signals.
 
 1. **Direct Supported:** Clear factual questions on basic syntax.
 2. **Paraphrased:** Conceptual questions with rephrased terminology.
@@ -309,7 +330,7 @@ To run the evaluation:
 # Run evaluation benchmark
 uv run python backend/evaluation/run_eval.py
 
-# Run live evaluation with Groq
+# Run live evaluation with the provider selected in .env (Gemini by default)
 uv run python backend/evaluation/run_eval.py --live
 ```
 
@@ -317,7 +338,7 @@ uv run python backend/evaluation/run_eval.py --live
 
 ## 🧪 Automated Test Suite
 
-A comprehensive test suite of 21 tests is implemented under [`backend/tests/`](backend/tests/):
+The automated test suite currently contains 29 tests under [`backend/tests/`](backend/tests/); run it with `uv run pytest backend/tests/ -v`.
 - **Unit Tests (`test_graph.py`):** Verified document routing, relevance filtering, query rewriting loops, retry exhaustion, and citation integrity.
 - **Ingestion Tests (`test_ingestion.py`):** Heading-aware chunking, code-block boundaries, SHA-256 deduplication, and stale chunk deletion.
 - **Integration Tests (`test_api.py`):** Full FastAPI test client covering `/query`, `/ingest`, `/documents`, `/feedback`, `/health`, and error codes (400, 404, 415, 422, 503).
