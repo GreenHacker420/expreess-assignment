@@ -33,7 +33,7 @@ The assistant executes a deterministic, self-correcting state graph implemented 
 ```mermaid
 flowchart TD
     START([START]) --> analyze_query[Node: analyze_query\nIntent classification & query rewriting]
-    analyze_query --> retrieve[Node: retrieve\nMulti-query vector search + reciprocal-rank merge]
+    analyze_query --> retrieve[Node: retrieve\nLangChain Chroma retriever over focused queries]
     retrieve --> grade_documents[Node: grade_documents\nStructured LLM relevance scoring]
     
     grade_documents --> route_decision{route_after_grading}
@@ -58,7 +58,7 @@ flowchart TD
 | Node | Responsibility | Output Invariants |
 |---|---|---|
 | **`analyze_query`** | Categorizes intent and creates a primary query plus focused searches for distinct aspects of compound questions. | `query_type`, `retrieval_queries` |
-| **`retrieve`** | Searches each query, merges results with reciprocal-rank fusion, and preserves chunk metadata. | Deduplicated `retrieved_chunks` |
+| **`retrieve`** | Invokes LangChain's `Chroma.as_retriever()` for the primary and focused query variants, deduplicates by chunk ID, and preserves source metadata. | Deduplicated `retrieved_chunks` |
 | **`grade_documents`** | Evaluates document relevance using structured binary classification (`yes`/`no`) via LLM. Filters out noise. | `relevant_chunks` |
 | **`generate`** | Synthesizes a factual, grounded response citing retrieved source chunks explicitly using bracket labels (`[S1]`, `[S2]`). | `answer`, `citations`, `status="answered"` |
 | **`check_grounding`** | Uses a separate structured LLM judgment to check the answer claims against the cited context; permits one constrained regeneration. | `grounding_result`, bounded regeneration or safe fallback |
@@ -66,6 +66,8 @@ flowchart TD
 | **`web_search`** | Optional single Tavily search after indexed-corpus retries; returned snippets are graded by the same relevance node and cited by URL. | `web_search_attempted`, `web_fallback_used` |
 | **CRAG correction** | Rewrites and retrieves again when grading rejects all chunks or generation identifies missing evidence, subject to `MAX_RETRIES`. | Bounded retrieval attempts |
 | **`fallback`** | Reached when retrieval retries are exhausted or answer grounding still fails. Returns safe refusal. | `answer`, `status="insufficient_context"` |
+
+Retrieval uses LangChain's `Chroma.as_retriever()` and the standard `BaseRetriever` Runnable interface. Query analysis may produce a primary query and focused variants; each is passed through the same retriever, and returned chunks are deduplicated by their stable chunk IDs. This keeps vector search replaceable through LangChain's vector-store integration and avoids maintaining a custom lexical scoring or rank-fusion implementation. See the [LangChain retriever guide](https://docs.langchain.com/oss/python/langchain/knowledge-base#use-retrievers) and [Chroma integration](https://docs.langchain.com/oss/python/integrations/vectorstores/index#chroma).
 
 ---
 

@@ -4,13 +4,14 @@ import hashlib
 import logging
 import os
 from typing import List, Protocol, runtime_checkable
+from langchain_core.embeddings import Embeddings
 
 try:
     from google import genai
     from google.genai import types
 except ImportError:
-    genai = None  
-    types = None  
+    genai = None
+    types = None
 
 logger = logging.getLogger("embeddings")
 
@@ -42,7 +43,9 @@ class GeminiEmbeddingsService:
         output_dimensionality: int = 768,
     ):
         if genai is None:
-            raise ImportError("google-genai package is required. Install with `uv add google-genai`.")
+            raise ImportError(
+                "google-genai package is required. Install with `uv add google-genai`."
+            )
         self.api_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         self.model_name = model_name
         self.output_dimensionality = output_dimensionality
@@ -50,6 +53,7 @@ class GeminiEmbeddingsService:
 
     def _embed_single_with_retry(self, text: str, max_retries: int = 5) -> List[float]:
         import time
+
         delay = 2.0
         for attempt in range(max_retries):
             try:
@@ -58,14 +62,18 @@ class GeminiEmbeddingsService:
                     contents=text,
                     config=types.EmbedContentConfig(
                         output_dimensionality=self.output_dimensionality
-                    ) if types else None,
+                    )
+                    if types
+                    else None,
                 )
                 return res.embeddings[0].values
             except Exception as e:
                 err_str = str(e)
                 if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
                     if attempt < max_retries - 1:
-                        logger.warning("Gemini embedding rate-limited (429). Retrying in %.1fs...", delay)
+                        logger.warning(
+                            "Gemini embedding rate-limited (429). Retrying in %.1fs...", delay
+                        )
                         time.sleep(delay)
                         delay *= 2
                         continue
@@ -73,6 +81,7 @@ class GeminiEmbeddingsService:
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         import time
+
         if not texts:
             return []
         if not self._client:
@@ -117,3 +126,16 @@ class MockEmbeddingsService:
 
     def count_tokens(self, text: str) -> int:
         return len(text.split())
+
+
+class LangChainEmbeddingsAdapter(Embeddings):
+    """Expose the configured embedding service through LangChain's standard interface."""
+
+    def __init__(self, service: EmbeddingsService):
+        self.service = service
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        return self.service.embed_documents(texts)
+
+    def embed_query(self, text: str) -> List[float]:
+        return self.service.embed_query(text)

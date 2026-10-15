@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 from urllib.parse import urlparse
 
 from backend.app.graph.state import CitationRecord, GradeRecord, GraphState
-from backend.app.services.embeddings import EmbeddingsService
+from backend.app.services.embeddings import EmbeddingsService, LangChainEmbeddingsAdapter
 from backend.app.services.llm import GroundingOutput, LLMOperationalError, LLMService
 from backend.app.services.vector_store import VectorStoreService
 from backend.app.services.web_search import WebSearchService
@@ -42,6 +42,9 @@ class RAGNodeFactory:
         self.web_search = web_search
         self.web_search_max_results = max(1, min(web_search_max_results, 10))
         self._grade_semaphore = asyncio.Semaphore(grading_concurrency)
+        self.retriever = vector_store.as_retriever(
+            LangChainEmbeddingsAdapter(embeddings), top_k=top_k
+        )
 
     async def analyze_query(self, state: GraphState) -> Dict[str, Any]:
         """Node 1: Rewrites the question for retrieval and classifies intent."""
@@ -73,26 +76,19 @@ class RAGNodeFactory:
             state["query_id"], attempts, " | ".join(queries)
         )
 
-        # Search each aspect independently and merge with reciprocal-rank fusion.
+        # Focused query variants share the standard LangChain retriever interface.
         ranked: Dict[str, Dict[str, Any]] = {}
         for query in queries:
-            query_emb = self.embeddings.embed_query(query)
-            query_results = self.vector_store.search(query_emb, top_k=self.top_k)
-            keyword_search = getattr(self.vector_store, "keyword_search", None)
-            if callable(keyword_search):
-                search_result_sets = [query_results, keyword_search(query, top_k=self.top_k)]
-            else:
-                search_result_sets = [query_results]
-            for result_set in search_result_sets:
-                for rank, result in enumerate(result_set, start=1):
-                    chunk_id = result.get("chunk_id", "")
-                    if not chunk_id:
-                        continue
-                    row = ranked.setdefault(chunk_id, {"result": result, "score": 0.0})
-                    row["score"] += 1.0 / (60 + rank)
-        ordered = sorted(ranked.values(), key=lambda row: row["score"], reverse=True)
-        candidate_limit = self.top_k * max(1, len(queries))
-        raw_results = [row["result"] for row in ordered[:candidate_limit]]
+            for document in self.retriever.invoke(query):
+                chunk_id = document.metadata.get("chunk_id", "")
+                if not chunk_id:
+                    continue
+                ranked.setdefault(chunk_id, {
+                    "chunk_id": chunk_id,
+                    "text": document.page_content,
+                    "metadata": document.metadata,
+                })
+        raw_results = list(ranked.values())
 
         retrieved_chunks = []
         for r in raw_results:
