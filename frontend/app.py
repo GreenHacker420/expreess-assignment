@@ -1,11 +1,18 @@
-"""Technical Documentation Assistant — Modern Streamlit Dashboard.
+"""Technical Documentation Assistant — Modern Pastel Dreamland Dashboard.
 
 Self-corrective RAG assistant built with LangGraph, ChromaDB, and FastAPI.
-Pixel-perfect design modeled directly after modern SaaS library dashboards with pure SVG vector graphics.
+Strictly styled with the Pastel Dreamland Adventure palette:
+- Pink Orchid: #cdb4db
+- Pastel Petal: #ffc8dd
+- Blush Pop: #ffafcc
+- Icy Blue: #bde0fe
+- Sky Blue: #a2d2ff
+- Deep Text: #2B1540
 """
 
 import os
 import time
+import urllib.parse
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -58,62 +65,71 @@ DEFAULT_DATASETS = [
 ]
 
 # -----------------------------------------------------------------------------
-# SVG Vector Icons (Pure Vectors - No Missing Fonts, No Low-Res Emojis)
+# Pure SVG Vectors (with xmlns, explicit viewBox, dimensions, and colors)
 # -----------------------------------------------------------------------------
-SVG_LOGO = """<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>"""
-SVG_HOME = """<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>"""
-SVG_MODELS = """<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>"""
-SVG_THREADS = """<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>"""
-SVG_LIBRARY = """<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>"""
-SVG_SMARTPAGES = """<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>"""
-SVG_REPORT = """<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>"""
-SVG_BOLT = """<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>"""
-SVG_BELL = """<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>"""
-SVG_SEARCH = """<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>"""
+SVG_LOGO = """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>"""
+SVG_HOME = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>"""
+SVG_MODELS = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>"""
+SVG_THREADS = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>"""
+SVG_LIBRARY = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>"""
+SVG_SMARTPAGES = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>"""
+SVG_REPORT = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>"""
 
-SVG_WRITE = """<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>"""
-SVG_UPLOAD = """<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>"""
-SVG_DATASET = """<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>"""
-SVG_SYNC = """<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>"""
+SVG_BOLT = """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>"""
+SVG_BELL = """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B5EA8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>"""
+SVG_SEARCH = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C789E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>"""
 
-SVG_DOC_ITEM = """<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>"""
-SVG_CUBE = """<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>"""
-SVG_LAYERS = """<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>"""
-SVG_CLOCK = """<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>"""
-SVG_PLUS_CIRCLE = """<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>"""
+SVG_WRITE = """<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>"""
+SVG_UPLOAD = """<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>"""
+SVG_DATASET = """<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>"""
+SVG_SYNC = """<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>"""
+
+SVG_DOC_ITEM = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>"""
+SVG_CUBE = """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B5EA8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>"""
+SVG_LAYERS = """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B5EA8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>"""
+SVG_CLOCK = """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B5EA8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>"""
+SVG_PLUS_CIRCLE = """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>"""
 
 AVATAR_IMG = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80"
 
 # -----------------------------------------------------------------------------
-# Precision Styling (Matching macOS Ambient Curved Wallpaper + Card Panel)
+# Pastel Dreamland Adventure CSS
 # -----------------------------------------------------------------------------
-GLOBAL_CSS = """
+PASTEL_CSS = """
 <style>
-/* Ambient desktop background */
+/* Pastel Dreamland Swirl Background */
 .stApp {
-    background: radial-gradient(130% 100% at 50% 0%, #1e3a8a 0%, #1e293b 55%, #0f172a 100%) fixed !important;
+    background: 
+        radial-gradient(at 0% 0%, #cdb4db 0px, transparent 55%),
+        radial-gradient(at 100% 0%, #a2d2ff 0px, transparent 55%),
+        radial-gradient(at 100% 100%, #ffc8dd 0px, transparent 55%),
+        radial-gradient(at 0% 100%, #bde0fe 0px, transparent 55%),
+        radial-gradient(at 50% 50%, #ffafcc 0px, transparent 65%),
+        #FEF6FB !important;
+    background-attachment: fixed !important;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     padding-top: 1.5rem !important;
+    color: #2B1540 !important;
 }
 
-/* Floating window card container */
+/* Central Floating White Window Card */
 .main .block-container {
-    max-width: 1240px !important;
+    max-width: 1220px !important;
     background: #FFFFFF !important;
-    border-radius: 26px !important;
-    box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.2) !important;
-    padding: 28px 44px 48px 44px !important;
-    margin-top: 1rem !important;
+    border-radius: 24px !important;
+    box-shadow: 0 20px 60px rgba(139, 91, 166, 0.22), 0 0 0 1px rgba(205, 180, 219, 0.4) !important;
+    padding: 30px 42px 42px 42px !important;
+    margin-top: 1.25rem !important;
     margin-bottom: 2.5rem !important;
 }
 
-/* Top bar navigation styling */
+/* Top Navigation Bar */
 .nav-bar-container {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding-bottom: 18px;
-    border-bottom: 1px solid #EDF2F7;
+    border-bottom: 1px solid #F0E2F5;
     margin-bottom: 24px;
 }
 .nav-brand-group {
@@ -122,11 +138,11 @@ GLOBAL_CSS = """
     gap: 28px;
 }
 .nav-logo-box {
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     border-radius: 10px;
-    background: #F8FAFC;
-    border: 1px solid #E2E8F0;
+    background: #FCE8F3;
+    border: 1px solid #CDB4DB;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -134,62 +150,62 @@ GLOBAL_CSS = """
 .nav-links-row {
     display: flex;
     align-items: center;
-    gap: 22px;
+    gap: 24px;
 }
 .nav-link-item {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 7px;
-    font-size: 0.92rem;
+    font-size: 0.93rem;
     font-weight: 500;
-    color: #64748B;
+    color: #6B5EA8;
     text-decoration: none;
-    cursor: pointer;
-    transition: color 0.15s ease;
+    transition: all 0.15s ease;
+    padding: 4px 6px;
 }
 .nav-link-item:hover {
-    color: #1E293B;
+    color: #2B1540;
 }
 .nav-link-item.active {
-    color: #2563EB;
-    font-weight: 600;
+    color: #4A7CC9;
+    font-weight: 700;
+    border-bottom: 2px solid #4A7CC9;
 }
 
-/* Right header controls */
+/* Header Right Pills */
 .nav-right-group {
     display: flex;
     align-items: center;
     gap: 16px;
 }
 .quota-pill {
-    background: #F1F5F9;
-    color: #475569;
+    background: #bde0fe;
+    color: #2B1540;
     font-size: 0.82rem;
     font-weight: 600;
     padding: 6px 14px;
     border-radius: 9999px;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 6px;
 }
 .new-thread-btn {
-    background: #2563EB;
-    color: #FFFFFF !important;
+    background: #a2d2ff;
+    color: #2B1540 !important;
     font-size: 0.88rem;
-    font-weight: 600;
+    font-weight: 700;
     padding: 7px 18px;
     border-radius: 9999px;
     display: inline-flex;
     align-items: center;
     gap: 6px;
     text-decoration: none;
-    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 4px 12px rgba(162, 210, 255, 0.45);
     transition: all 0.15s ease;
-    cursor: pointer;
     border: none;
 }
 .new-thread-btn:hover {
-    background: #1D4ED8;
+    background: #8fc7ff;
     transform: translateY(-1px);
 }
 .nav-avatar-img {
@@ -197,10 +213,10 @@ GLOBAL_CSS = """
     height: 34px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid #E2E8F0;
+    border: 2px solid #CDB4DB;
 }
 
-/* Section Title & Search */
+/* Library Heading & Search */
 .library-head-row {
     display: flex;
     align-items: center;
@@ -210,35 +226,56 @@ GLOBAL_CSS = """
 .library-main-title {
     font-size: 1.95rem;
     font-weight: 700;
-    color: #1E293B;
+    color: #2B1540;
     letter-spacing: -0.02em;
     margin: 0;
 }
+.search-box-container {
+    background: #FEF6FB;
+    border: 1px solid #CDB4DB;
+    border-radius: 12px;
+    padding: 7px 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: 250px;
+}
+.search-box-input {
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 0.86rem;
+    color: #2B1540;
+    width: 100%;
+}
+.search-box-input::placeholder {
+    color: #8C789E;
+}
 
-/* Action Cards */
+/* 4 Quick Action Cards */
 .action-card {
     background: #FFFFFF;
-    border: 1px solid #E2E8F0;
+    border: 1px solid #E8DCF0;
     border-radius: 16px;
     padding: 18px 20px;
     display: flex;
     align-items: center;
     gap: 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    box-shadow: 0 2px 8px rgba(139, 91, 166, 0.04);
     transition: all 0.18s ease;
     cursor: pointer;
     text-decoration: none;
 }
 .action-card:hover {
-    border-color: #BFDBFE;
-    box-shadow: 0 10px 24px -6px rgba(37, 99, 235, 0.12);
+    border-color: #CDB4DB;
+    box-shadow: 0 10px 24px rgba(205, 180, 219, 0.28);
     transform: translateY(-2px);
 }
 .action-icon-box {
     width: 46px;
     height: 46px;
     border-radius: 12px;
-    background: #EFF6FF;
+    background: #bde0fe;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -247,21 +284,21 @@ GLOBAL_CSS = """
 .action-card-title {
     font-size: 0.96rem;
     font-weight: 700;
-    color: #1E293B;
+    color: #2B1540;
     margin-bottom: 2px;
 }
 .action-card-subtitle {
     font-size: 0.8rem;
-    color: #64748B;
+    color: #6B5EA8;
 }
 
-/* Three Columns */
+/* Three Column Panels */
 .panel-card {
     background: #FFFFFF;
-    border: 1px solid #E2E8F0;
+    border: 1px solid #E8DCF0;
     border-radius: 16px;
     padding: 20px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+    box-shadow: 0 2px 10px rgba(139, 91, 166, 0.04);
 }
 .panel-head {
     display: flex;
@@ -272,47 +309,48 @@ GLOBAL_CSS = """
 .panel-title {
     font-size: 1.02rem;
     font-weight: 700;
-    color: #1E293B;
+    color: #2B1540;
 }
 .panel-view-all {
     font-size: 0.82rem;
-    font-weight: 500;
-    color: #64748B;
+    font-weight: 600;
+    color: #4A7CC9;
     text-decoration: none;
 }
 .doc-row-item {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 9px 8px;
+    padding: 10px 8px;
     border-radius: 8px;
     transition: background 0.15s ease;
+    text-decoration: none;
     cursor: pointer;
 }
 .doc-row-item:hover {
-    background: #F8FAFC;
+    background: #FCE8F3;
 }
 .doc-row-title {
     font-size: 0.88rem;
     font-weight: 600;
-    color: #1E293B;
+    color: #2B1540;
 }
 .doc-row-dataset {
     font-size: 0.84rem;
-    color: #94A3B8;
+    color: #8C789E;
 }
 
 /* Datasets Section */
 .datasets-header-title {
     font-size: 1.25rem;
     font-weight: 700;
-    color: #1E293B;
+    color: #2B1540;
     margin-top: 28px;
     margin-bottom: 16px;
 }
 .dataset-item-row {
     background: #FFFFFF;
-    border: 1px solid #E2E8F0;
+    border: 1px solid #E8DCF0;
     border-radius: 14px;
     padding: 14px 22px;
     margin-bottom: 10px;
@@ -322,8 +360,8 @@ GLOBAL_CSS = """
     transition: all 0.15s ease;
 }
 .dataset-item-row:hover {
-    border-color: #BFDBFE;
-    box-shadow: 0 4px 16px -2px rgba(37, 99, 235, 0.08);
+    border-color: #CDB4DB;
+    box-shadow: 0 4px 16px rgba(205, 180, 219, 0.22);
 }
 .dataset-left-info {
     display: flex;
@@ -334,7 +372,7 @@ GLOBAL_CSS = """
     width: 32px;
     height: 32px;
     border-radius: 8px;
-    background: #EFF6FF;
+    background: #bde0fe;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -342,7 +380,7 @@ GLOBAL_CSS = """
 .dataset-name-text {
     font-size: 0.94rem;
     font-weight: 600;
-    color: #1E293B;
+    color: #2B1540;
 }
 .dataset-right-meta {
     display: flex;
@@ -350,8 +388,8 @@ GLOBAL_CSS = """
     gap: 20px;
 }
 .meta-chip {
-    background: #F8FAFC;
-    border: 1px solid #F1F5F9;
+    background: #FEF6FB;
+    border: 1px solid #CDB4DB;
     border-radius: 8px;
     padding: 4px 10px;
     display: flex;
@@ -359,12 +397,12 @@ GLOBAL_CSS = """
     gap: 6px;
     font-size: 0.82rem;
     font-weight: 500;
-    color: #475569;
+    color: #2B1540;
 }
 </style>
 """
 
-st.html(GLOBAL_CSS)
+st.html(PASTEL_CSS)
 
 
 # -----------------------------------------------------------------------------
@@ -405,22 +443,26 @@ def submit_feedback(base_url: str, query_id: Optional[str], rating: int) -> bool
         return False
 
 
-if "current_nav" not in st.session_state:
-    st.session_state["current_nav"] = "Library"
-if "prefilled_question" not in st.session_state:
-    st.session_state["prefilled_question"] = ""
-if "show_uploader" not in st.session_state:
-    st.session_state["show_uploader"] = False
-
+# Read navigation from query parameters
+nav_from_query = st.query_params.get("tab", "Library")
+if nav_from_query in ["Home", "Models", "Threads", "Library", "Smartpages", "Report"]:
+    current_tab = nav_from_query
+else:
+    current_tab = "Library"
 
 health_info = fetch_health(BACKEND_URL)
 docs_count = health_info.get("document_count", 5) if health_info else 5
 chunks_count = health_info.get("chunk_count", 92) if health_info else 92
 backend_online = health_info is not None
 
+# Handle prefilled query from URL
+url_prefilled_q = st.query_params.get("q", "")
+if url_prefilled_q:
+    st.session_state["prefilled_question"] = url_prefilled_q
+
 
 # -----------------------------------------------------------------------------
-# Header Navigation Component (Exact Match with Vector SVGs)
+# Top Navigation Bar (Pure Vector Icons + Seamless Query Navigation)
 # -----------------------------------------------------------------------------
 nav_pages = ["Home", "Models", "Threads", "Library", "Smartpages", "Report"]
 nav_icons = {
@@ -440,9 +482,9 @@ top_bar_html = f"""
         </div>
         <div class="nav-links-row">
             {"".join([
-                f'<span class="nav-link-item {"active" if p == st.session_state["current_nav"] else ""}">'
+                f'<a href="?tab={p}" target="_self" class="nav-link-item {"active" if p == current_tab else ""}">'
                 f'{nav_icons[p]} {p}'
-                f'</span>'
+                f'</a>'
                 for p in nav_pages
             ])}
         </div>
@@ -451,9 +493,9 @@ top_bar_html = f"""
         <div class="quota-pill">
             {SVG_BOLT} 13 / 54M · 26%
         </div>
-        <div class="new-thread-btn">
+        <a href="?tab=Threads&new=1" target="_self" class="new-thread-btn">
             + New thread
-        </div>
+        </a>
         <div style="cursor: pointer;">
             {SVG_BELL}
         </div>
@@ -464,43 +506,12 @@ top_bar_html = f"""
 
 st.html(top_bar_html)
 
-# Streamlit interactive tab controller underneath
-ctrl_c1, ctrl_c2, ctrl_c3 = st.columns([6, 3, 1], vertical_alignment="center")
-with ctrl_c1:
-    selected_page = st.segmented_control(
-        "Navigation switcher",
-        options=nav_pages,
-        default=st.session_state["current_nav"],
-        label_visibility="collapsed",
-    )
-    if selected_page and selected_page != st.session_state["current_nav"]:
-        st.session_state["current_nav"] = selected_page
-        st.rerun()
-
-with ctrl_c2:
-    if st.button("+ New thread", type="primary", key="top_new_thread_btn", width="stretch"):
-        st.session_state["current_nav"] = "Threads"
-        st.session_state["prefilled_question"] = ""
-        st.session_state.pop("last_result", None)
-        st.rerun()
-
-with ctrl_c3:
-    if st.button("Sync", key="top_sync_btn", help="Sync backend state"):
-        fetch_health.clear()
-        fetch_documents.clear()
-        st.rerun()
-
-
-current_nav = st.session_state.get("current_nav", "Library")
-
 
 # -----------------------------------------------------------------------------
-# Page: Library (Exact Replica of Reference Design)
+# View: Library
 # -----------------------------------------------------------------------------
-if current_nav == "Library":
-    st.write("")
-
-    # Title & Search Input Row
+if current_tab == "Library":
+    # Header: Title + Search
     head_c1, head_c2 = st.columns([3, 2], vertical_alignment="center")
     with head_c1:
         st.markdown('<h1 class="library-main-title">Library</h1>', unsafe_allow_html=True)
@@ -509,93 +520,79 @@ if current_nav == "Library":
             "Search",
             placeholder="Search contents...",
             label_visibility="collapsed",
-            key="library_search_input",
+            key="lib_search_kw",
         )
 
-    # 4 Quick Action Cards Row
-    act_col1, act_col2, act_col3, act_col4 = st.columns(4)
+    st.write("")
 
-    with act_col1:
-        card1_html = f"""
-        <div class="action-card">
+    # 4 Quick Action Cards Row
+    act1, act2, act3, act4 = st.columns(4)
+
+    with act1:
+        c1_html = f"""
+        <a href="?tab=Threads" target="_self" class="action-card">
             <div class="action-icon-box">{SVG_WRITE}</div>
             <div>
                 <div class="action-card-title">Write content</div>
                 <div class="action-card-subtitle">Using AI</div>
             </div>
-        </div>
+        </a>
         """
-        st.html(card1_html)
-        if st.button("Open AI Writer", key="btn_act_write", width="stretch"):
-            st.session_state["current_nav"] = "Threads"
-            st.session_state["prefilled_question"] = ""
-            st.rerun()
+        st.html(c1_html)
 
-    with act_col2:
-        card2_html = f"""
-        <div class="action-card">
+    with act2:
+        c2_html = f"""
+        <a href="?tab=Library&upload=1" target="_self" class="action-card">
             <div class="action-icon-box">{SVG_UPLOAD}</div>
             <div>
                 <div class="action-card-title">Upload or drop</div>
                 <div class="action-card-subtitle">Multiple file formats</div>
             </div>
-        </div>
+        </a>
         """
-        st.html(card2_html)
-        if st.button("Upload Document", key="btn_act_upload", width="stretch"):
-            st.session_state["show_uploader"] = not st.session_state.get("show_uploader", False)
-            st.rerun()
+        st.html(c2_html)
 
-    with act_col3:
-        card3_html = f"""
-        <div class="action-card">
+    with act3:
+        c3_html = f"""
+        <a href="?tab=Smartpages" target="_self" class="action-card">
             <div class="action-icon-box">{SVG_DATASET}</div>
             <div>
                 <div class="action-card-title">Create dataset</div>
                 <div class="action-card-subtitle">Organize your contents</div>
             </div>
-        </div>
+        </a>
         """
-        st.html(card3_html)
-        if st.button("Manage Datasets", key="btn_act_dataset", width="stretch"):
-            st.session_state["current_nav"] = "Smartpages"
-            st.rerun()
+        st.html(c3_html)
 
-    with act_col4:
-        card4_html = f"""
-        <div class="action-card">
+    with act4:
+        c4_html = f"""
+        <a href="?tab=Library&sync=1" target="_self" class="action-card">
             <div class="action-icon-box">{SVG_SYNC}</div>
             <div>
                 <div class="action-card-title">Import & sync</div>
                 <div class="action-card-subtitle">connect doc from apps</div>
             </div>
-        </div>
+        </a>
         """
-        st.html(card4_html)
-        if st.button("Sync Now", key="btn_act_sync", width="stretch"):
-            fetch_documents.clear()
-            fetch_health.clear()
-            st.success("Synchronized with technical documentation corpus.")
-            st.rerun()
+        st.html(c4_html)
 
-    # Expandable Document Ingestion Panel
-    if st.session_state.get("show_uploader", False):
+    # Ingestion drawer if requested via ?upload=1
+    if st.query_params.get("upload") == "1":
         st.write("")
         with st.container(border=True):
             st.markdown("### Upload Document to Corpus")
-            st.caption("Drag and drop markdown or text files to chunk and index into ChromaDB vector store.")
-            up_file = st.file_uploader("Document file", type=["md", "markdown", "txt"], label_visibility="collapsed")
+            up_file = st.file_uploader("Document file", type=["md", "markdown", "txt"])
             up_title = st.text_input("Title (optional)", placeholder="FastAPI Routing and Parameters Guide")
 
-            ingest_col1, ingest_col2 = st.columns([2, 8])
-            with ingest_col1:
-                if st.button("Index Document", type="primary", width="stretch"):
+            u_col1, u_col2 = st.columns([2, 8])
+            with u_col1:
+                if st.button("Index Document", type="primary"):
                     if not up_file:
-                        st.warning("Please choose a file to upload.")
+                        st.warning("Please choose a file.")
                     elif not backend_online:
-                        st.error("Backend server is currently offline.")
+                        st.error("Backend offline.")
                     else:
-                        with st.spinner("Processing document chunks and embeddings..."):
+                        with st.spinner("Chunking & embedding..."):
                             try:
                                 files = {"file": (up_file.name, up_file.getvalue(), "text/markdown")}
                                 data = {"title": up_title} if up_title else {}
@@ -603,17 +600,24 @@ if current_nav == "Library":
                                 if res.status_code == 200:
                                     fetch_documents.clear()
                                     fetch_health.clear()
-                                    st.success(f"Successfully indexed {up_file.name}!")
-                                    st.session_state["show_uploader"] = False
+                                    st.success(f"Indexed {up_file.name} successfully!")
+                                    st.query_params["upload"] = "0"
                                     st.rerun()
                                 else:
-                                    st.error(f"Ingestion failed: {res.text}")
+                                    st.error(f"Error {res.status_code}: {res.text}")
                             except Exception as ex:
                                 st.error(str(ex))
-            with ingest_col2:
-                if st.button("Close Panel"):
-                    st.session_state["show_uploader"] = False
+            with u_col2:
+                if st.button("Cancel"):
+                    st.query_params["upload"] = "0"
                     st.rerun()
+
+    # Sync action if requested via ?sync=1
+    if st.query_params.get("sync") == "1":
+        fetch_documents.clear()
+        fetch_health.clear()
+        st.success("Vector store synced with latest backend status.")
+        st.query_params["sync"] = "0"
 
     st.write("")
 
@@ -625,119 +629,88 @@ if current_nav == "Library":
         <div class="panel-card">
             <div class="panel-head">
                 <span class="panel-title">Recent</span>
-                <span class="panel-view-all">View All</span>
+                <a href="?tab=Smartpages" target="_self" class="panel-view-all">View All</a>
             </div>
             {"".join([
-                f'<div class="doc-row-item">'
+                f'<a href="?tab=Threads&q={urllib.parse.quote_plus(doc["query"])}" target="_self" class="doc-row-item">'
                 f'{SVG_DOC_ITEM}'
                 f'<div><span class="doc-row-title">{doc["title"]}</span> <span class="doc-row-dataset">· in {doc["dataset"]}</span></div>'
-                f'</div>'
+                f'</a>'
                 for doc in DEFAULT_RECENT_DOCS
             ])}
         </div>
         """
         st.html(recent_html)
-        r_choice = st.selectbox(
-            "Select recent",
-            options=["— Query Recent —"] + [d["title"] for d in DEFAULT_RECENT_DOCS],
-            label_visibility="collapsed",
-            key="sel_recent_doc",
-        )
-        if r_choice and not r_choice.startswith("—"):
-            matched = next(d for d in DEFAULT_RECENT_DOCS if d["title"] == r_choice)
-            st.session_state["current_nav"] = "Threads"
-            st.session_state["prefilled_question"] = matched["query"]
-            st.rerun()
 
     with col2:
         starred_html = f"""
         <div class="panel-card">
             <div class="panel-head">
                 <span class="panel-title">Starred</span>
-                <span class="panel-view-all">View All</span>
+                <a href="?tab=Smartpages" target="_self" class="panel-view-all">View All</a>
             </div>
             {"".join([
-                f'<div class="doc-row-item">'
+                f'<a href="?tab=Threads&q={urllib.parse.quote_plus(doc["query"])}" target="_self" class="doc-row-item">'
                 f'{SVG_DOC_ITEM}'
                 f'<div><span class="doc-row-title">{doc["title"]}</span> <span class="doc-row-dataset">· in {doc["dataset"]}</span></div>'
-                f'</div>'
+                f'</a>'
                 for doc in DEFAULT_STARRED_DOCS
             ])}
         </div>
         """
         st.html(starred_html)
-        s_choice = st.selectbox(
-            "Select starred",
-            options=["— Query Starred —"] + [d["title"] for d in DEFAULT_STARRED_DOCS],
-            label_visibility="collapsed",
-            key="sel_starred_doc",
-        )
-        if s_choice and not s_choice.startswith("—"):
-            matched = next(d for d in DEFAULT_STARRED_DOCS if d["title"] == s_choice)
-            st.session_state["current_nav"] = "Threads"
-            st.session_state["prefilled_question"] = matched["query"]
-            st.rerun()
 
     with col3:
         user_html = f"""
         <div class="panel-card">
             <div class="panel-head">
                 <span class="panel-title">Created by me</span>
-                <span class="panel-view-all">View All</span>
+                <a href="?tab=Smartpages" target="_self" class="panel-view-all">View All</a>
             </div>
             {"".join([
-                f'<div class="doc-row-item">'
+                f'<a href="?tab=Threads&q={urllib.parse.quote_plus(doc["query"])}" target="_self" class="doc-row-item">'
                 f'{SVG_DOC_ITEM}'
                 f'<div><span class="doc-row-title">{doc["title"]}</span> <span class="doc-row-dataset">· in {doc["dataset"]}</span></div>'
-                f'</div>'
+                f'</a>'
                 for doc in DEFAULT_USER_DOCS
             ])}
         </div>
         """
         st.html(user_html)
-        u_choice = st.selectbox(
-            "Select created",
-            options=["— Query Created —"] + [d["title"] for d in DEFAULT_USER_DOCS],
-            label_visibility="collapsed",
-            key="sel_created_doc",
-        )
-        if u_choice and not u_choice.startswith("—"):
-            matched = next(d for d in DEFAULT_USER_DOCS if d["title"] == u_choice)
-            st.session_state["current_nav"] = "Threads"
-            st.session_state["prefilled_question"] = matched["query"]
-            st.rerun()
 
     # Datasets Section
     st.markdown('<div class="datasets-header-title">Datasets</div>', unsafe_allow_html=True)
 
-    datasets_list = DEFAULT_DATASETS
+    filtered_datasets = DEFAULT_DATASETS
     if search_filter.strip():
-        q_term = search_filter.strip().lower()
-        datasets_list = [d for d in datasets_list if q_term in d["name"].lower()]
+        term = search_filter.strip().lower()
+        filtered_datasets = [d for d in filtered_datasets if term in d["name"].lower()]
 
-    for ds in datasets_list:
-        count_tag = f'<span class="meta-chip">{SVG_CUBE} {ds["count"]}</span>' if ds.get("count") else ""
-        ds_row_html = f"""
+    for ds in filtered_datasets:
+        count_chip = f'<span class="meta-chip">{SVG_CUBE} {ds["count"]}</span>' if ds.get("count") else ""
+        ds_html = f"""
         <div class="dataset-item-row">
             <div class="dataset-left-info">
                 <div class="dataset-square-icon">{SVG_DATASET}</div>
                 <div class="dataset-name-text">{ds["name"]}</div>
             </div>
             <div class="dataset-right-meta">
-                {count_tag}
+                {count_chip}
                 <span class="meta-chip">{SVG_LAYERS} {ds["chunks"]}</span>
                 <span class="meta-chip">{SVG_CLOCK} {ds["date"]}</span>
-                <span style="cursor: pointer;">{SVG_PLUS_CIRCLE}</span>
+                <a href="?tab=Threads&q={urllib.parse.quote_plus(f'Tell me about {ds["name"]}')}" target="_self">
+                    {SVG_PLUS_CIRCLE}
+                </a>
             </div>
         </div>
         """
-        st.html(ds_row_html)
+        st.html(ds_html)
 
 
 # -----------------------------------------------------------------------------
-# Page: Threads (Conversational Assistant & Self-Corrective RAG Pipeline)
+# View: Threads (Q&A Assistant & Pipeline Trace)
 # -----------------------------------------------------------------------------
-elif current_nav == "Threads":
+elif current_tab == "Threads":
     st.markdown("### Technical Documentation Assistant")
     st.caption("Self-corrective RAG powered by LangGraph, ChromaDB, and Groq Llama 3.3.")
 
@@ -768,6 +741,7 @@ elif current_nav == "Threads":
         if st.button("Clear", width="stretch"):
             st.session_state["prefilled_question"] = ""
             st.session_state.pop("last_result", None)
+            st.query_params.pop("q", None)
             st.rerun()
 
     if submit_ask:
@@ -854,9 +828,9 @@ elif current_nav == "Threads":
 
 
 # -----------------------------------------------------------------------------
-# Page: Models & Architecture
+# View: Models & Architecture
 # -----------------------------------------------------------------------------
-elif current_nav == "Models":
+elif current_tab == "Models":
     st.markdown("### Models & System Architecture")
     st.caption("Deterministic StateGraph orchestrated by LangGraph with binary grading and self-correction.")
 
@@ -889,9 +863,9 @@ elif current_nav == "Models":
 
 
 # -----------------------------------------------------------------------------
-# Page: Smartpages / Document Browser
+# View: Smartpages
 # -----------------------------------------------------------------------------
-elif current_nav == "Smartpages":
+elif current_tab == "Smartpages":
     st.markdown("### Smartpages · Corpus Browser")
 
     docs_data = fetch_documents(BACKEND_URL)
@@ -920,10 +894,10 @@ elif current_nav == "Smartpages":
 
 
 # -----------------------------------------------------------------------------
-# Page: Home & Report
+# View: Home & Report
 # -----------------------------------------------------------------------------
-elif current_nav in ("Home", "Report"):
-    st.markdown(f"### {current_nav} Overview")
+elif current_tab in ("Home", "Report"):
+    st.markdown(f"### {current_tab} Overview")
 
     k1, k2, k3 = st.columns(3)
     k1.metric("Indexed Documents", docs_count, border=True)
