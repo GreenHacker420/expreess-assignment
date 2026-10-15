@@ -51,8 +51,8 @@ class IngestionService:
         embeddings: EmbeddingsService,
         vector_store: VectorStoreService,
         database: DatabaseService,
-        target_chunk_tokens: int = 200,
-        overlap_tokens: int = 35,
+        target_chunk_tokens: int = 800,
+        overlap_tokens: int = 150,
     ):
         self.embeddings = embeddings
         self.vector_store = vector_store
@@ -128,10 +128,12 @@ class IngestionService:
         chunks: List[str] = []
         current_units: List[str] = []
 
+        max_budget = int(self.target_chunk_tokens * 1.15)
+
         def _safe_add_chunk(chunk_content: str) -> None:
-            """Ensure chunk strictly obeys token budget (< 220 tokens), splitting words if needed."""
+            """Ensure chunk strictly obeys token budget, splitting words if needed."""
             tokens = self.embeddings.count_tokens(chunk_content)
-            if tokens <= 220:
+            if tokens <= max_budget:
                 chunks.append(chunk_content)
                 return
 
@@ -139,7 +141,7 @@ class IngestionService:
             curr_words: List[str] = []
             for w in words:
                 candidate = " ".join(curr_words + [w])
-                if self.embeddings.count_tokens(candidate) > 220 and curr_words:
+                if self.embeddings.count_tokens(candidate) > max_budget and curr_words:
                     chunks.append(" ".join(curr_words))
                     curr_words = [w]
                 else:

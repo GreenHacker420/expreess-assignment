@@ -43,7 +43,7 @@ class RewriteOutput(BaseModel):
 class GenerationOutput(BaseModel):
     """Structured output for answer generation node."""
     answer: str = Field(
-        description="Clear, concise, factual answer grounded exclusively in the provided context"
+        description="Clear, concise, factual answer grounded exclusively in the provided context, with mandatory inline citation tags like [S1], [S2] attached directly to each factual sentence"
     )
     cited_labels: List[str] = Field(
         default_factory=list,

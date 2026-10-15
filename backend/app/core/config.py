@@ -28,10 +28,10 @@ class Settings(BaseSettings):
 
     # RAG Workflow Parameters
     max_retries: int = Field(default=2, alias="MAX_RETRIES")
-    top_k: int = Field(default=3, alias="TOP_K")
-    grading_concurrency: int = Field(default=2, alias="GRADING_CONCURRENCY")
-    chunk_size: int = Field(default=200, alias="CHUNK_SIZE")
-    chunk_overlap: int = Field(default=35, alias="CHUNK_OVERLAP")
+    top_k: int = Field(default=5, alias="TOP_K")
+    grading_concurrency: int = Field(default=3, alias="GRADING_CONCURRENCY")
+    chunk_size: int = Field(default=800, alias="CHUNK_SIZE")
+    chunk_overlap: int = Field(default=150, alias="CHUNK_OVERLAP")
 
     # API Validation Limits
     max_question_length: int = Field(default=1000, alias="MAX_QUESTION_LENGTH")
