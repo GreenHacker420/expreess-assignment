@@ -1,0 +1,66 @@
+# Pastel Dreamland Adventure theme
+# Palette: Pink Orchid #cdb4db · Pastel Petal #ffc8dd · Blush Pop #ffafcc
+#          Icy Blue #bde0fe · Sky Blue #a2d2ff
+
+[theme]
+base = "light"
+
+# --- Core colors ---
+# Primary: darkened Pink Orchid (#cdb4db) to pass WCAG AA on white button labels
+primaryColor       = "#8B5BA6"   # deep violet-pink — buttons, links, active elements
+backgroundColor    = "#FEF6FB"   # near-white with the faintest blush tint
+secondaryBackgroundColor = "#FCE8F3"   # Pastel Petal–tinted widget backgrounds
+textColor          = "#2B1540"   # deep indigo-plum for maximum legibility
+
+# --- Semantic colors ---
+borderColor        = "#CDB4DB"   # Pink Orchid as border
+linkColor          = "#4A7CC9"   # darkened Sky Blue for readable links
+codeBackgroundColor = "#F0E8FB"  # soft lavender code blocks
+codeTextColor      = "#5B3F85"
+
+# --- Semantic palette overrides ---
+blueColor          = "#4A7CC9"
+violetColor        = "#8B5BA6"
+redColor           = "#D45B7A"
+greenColor         = "#3A8C6E"
+orangeColor        = "#C97A3A"
+
+# --- Typography ---
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@600;700&display=swap"
+codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+linkUnderline = false
+
+# --- Shape ---
+baseRadius   = "0.75rem"
+buttonRadius = "full"
+showWidgetBorder  = true
+showSidebarBorder = true
+
+# --- Spacing ---
+paddingTop    = "1rem"
+paddingBottom = "2rem"
+
+# --- Chart palettes (pastel + legible) ---
+chartCategoricalColors = [
+  "#8B5BA6",  # deep Pink Orchid
+  "#4A7CC9",  # deep Sky Blue
+  "#D45B7A",  # warm rose-red
+  "#3A8C6E",  # sage green
+  "#C97A3A",  # warm amber
+  "#6B5EA8",  # periwinkle
+  "#B5747D",  # dusty rose
+]
+
+
+# --- Sidebar: Pink Orchid swatch as contrasting panel ---
+[theme.sidebar]
+backgroundColor          = "#CDB4DB"   # Pink Orchid
+secondaryBackgroundColor = "#BDA0CC"   # slightly deeper orchid
+textColor                = "#1A0A2E"   # deep indigo on pastel background
+borderColor              = "#B39CC8"
+primaryColor             = "#5B3F85"   # deep violet for interactive elements
+linkColor                = "#3A2265"
+showWidgetBorder         = true
+paddingTop  = "0.75rem"
+paddingBottom = "1rem"
