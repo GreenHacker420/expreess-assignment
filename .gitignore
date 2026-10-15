@@ -39,6 +39,7 @@ venv.bak/
 
 # Vector databases & local storage
 chroma_db/
+backend/data/chroma/
 faiss_index/
 *.chroma
 *.sqlite3
@@ -74,6 +75,8 @@ Thumbs.db
 *.swp
 *.swo
 *~
+.claude/
+.agents/
 
 # LangChain & LangSmith local artifacts / Logs
 *.log

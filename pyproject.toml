@@ -5,30 +5,32 @@ description = "Self-Corrective RAG Technical Documentation Assistant built with 
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "chromadb>=1.5.0",
-    "fastapi>=0.140.0",
-    "httpx>=0.28.0",
-    "langchain>=1.4.0",
+    "chromadb>=1.5.9",
+    "fastapi>=0.143.1",
+    "httpx>=0.28.1",
+    "langchain>=1.4.6",
     "langchain-chroma>=1.1.0",
-    "langchain-community>=0.4.0",
-    "langchain-core>=1.6.0",
-    "langchain-google-genai>=4.4.0",
-    "langchain-groq>=1.1.0",
-    "langchain-openai>=1.7.0",
-    "langgraph>=1.2.0",
-    "pydantic>=2.14.0",
+    "langchain-community>=0.4.2",
+    "langchain-core>=1.6.10",
+    "langchain-google-genai>=4.4.2",
+    "langchain-groq>=1.1.3",
+    "langchain-openai>=1.7.2",
+    "langgraph>=1.2.15",
+    "pydantic>=2.14.1",
     "pydantic-settings>=2.16.0",
-    "python-dotenv>=1.2.0",
-    "python-multipart>=0.0.30",
-    "tavily-python>=0.8.0",
-    "uvicorn[standard]>=0.50.0",
+    "python-dotenv>=1.2.4",
+    "python-multipart>=0.0.32",
+    "sentence-transformers>=6.1.0",
+    "streamlit>=1.66.0",
+    "tavily-python>=0.8.5",
+    "uvicorn[standard]>=0.54.0",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3.3",
-    "pytest-asyncio>=0.24.0",
-    "ruff>=0.7.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.17.0",
 ]
 
 [tool.uv]
@@ -41,3 +43,4 @@ target-version = "py312"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["backend/tests"]
+pythonpath = ["."]
