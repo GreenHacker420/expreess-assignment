@@ -111,14 +111,15 @@ jobs:
               --from-env-file=/dev/stdin \
               --dry-run=client -o yaml | KUBECONFIG=~/.kube/config kubectl apply -f -"
 
-      - name: Apply ConfigMap, Service, Ingress, and Deployment
+      - name: Apply ConfigMap, Service, Deployment, and Ingress
         env:
           SSHPASS: ${{ secrets.NST_SSH_PASSWORD }}
         run: |
           sshpass -e ssh nst-n1 "KUBECONFIG=~/.kube/config kubectl apply -f -" < k8s/configmap.yaml
           sshpass -e ssh nst-n1 "KUBECONFIG=~/.kube/config kubectl apply -f -" < k8s/service.yaml
-          sshpass -e ssh nst-n1 "KUBECONFIG=~/.kube/config kubectl apply -f -" < k8s/ingress.yaml
           sshpass -e ssh nst-n1 "KUBECONFIG=~/.kube/config kubectl apply -f -" < k8s/deployment.yaml
+          # Note: Ingress creation in student namespace is managed via Rancher UI / Cluster Ingress
+          sshpass -e ssh nst-n1 "KUBECONFIG=~/.kube/config kubectl apply -f -" < k8s/ingress.yaml || echo "Ingress creation skipped (managed via Rancher)"
 
       - name: Verify Rollout Status
         env:
