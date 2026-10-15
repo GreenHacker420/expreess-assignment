@@ -244,7 +244,37 @@ The Streamlit frontend (`frontend/app.py`) provides three purpose-built tabs:
 
 ## 📊 Evaluation Benchmark & Results
 
-The system includes an automated evaluation harness ([`backend/evaluation/run_eval.py`](backend/evaluation/run_eval.py)) testing **12 labeled benchmark questions** ([`backend/evaluation/questions.json`](backend/evaluation/questions.json)) across 5 categories:
+The repository includes a **14-case golden set** in [`backend/evaluation/golden_cases.json`](backend/evaluation/golden_cases.json) and a reviewable workbook in [`backend/evaluation/golden_cases.xlsx`](backend/evaluation/golden_cases.xlsx). Cases cover direct questions, paraphrases, multi-document synthesis, adjacent and unrelated unsupported topics, and prompt injection. Supported cases define expected corpus sources and answer fact groups; unsupported cases expect a safe refusal.
+
+The live graph evaluator reports status accuracy, top-k source recall, cited-source recall, heuristic fact coverage, citation-label integrity, retries, and latency:
+
+```bash
+# Requires GROQ_API_KEY and a populated Chroma index
+uv run python backend/evaluation/run_golden_eval.py
+```
+
+It saves timestamped JSON and CSV run results under `backend/evaluation/runs/` (ignored by git). Fact coverage is a transparent phrase-match regression signal, not a substitute for human review or an LLM-as-judge quality study.
+
+To test the running FastAPI application end to end, start the service in one terminal and run the API evaluator in another:
+
+```bash
+uv run uvicorn backend.main:app --host 127.0.0.1 --port 8000
+uv run python backend/evaluation/run_api_eval.py --base-url http://127.0.0.1:8000
+```
+
+The API evaluator checks `/health`, `/documents`, each golden query’s HTTP response and citations, query validation, invalid feedback, and a successful feedback round trip. It writes separate timestamped JSON/CSV results. For quick manual checks:
+
+```bash
+curl -sS http://127.0.0.1:8000/health
+curl -sS http://127.0.0.1:8000/documents
+curl -sS -X POST http://127.0.0.1:8000/query \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"How do I define a JSON request body with a Pydantic BaseModel?"}'
+curl -i -X POST http://127.0.0.1:8000/query \
+  -H 'Content-Type: application/json' -d '{"question":"   "}'
+```
+
+The earlier 12-case harness ([`backend/evaluation/run_eval.py`](backend/evaluation/run_eval.py)) remains an **offline mock routing smoke test**. Its 12/12 result measures expected status and retry routing with canned model responses; it does not establish answer accuracy. Use the live golden evaluator for source and answer regression signals.
 
 1. **Direct Supported:** Clear factual questions on basic syntax.
 2. **Paraphrased:** Conceptual questions with rephrased terminology.

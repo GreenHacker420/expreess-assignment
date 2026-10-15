@@ -51,6 +51,7 @@ uploads/
 test_uploads/
 tmp/
 temp/
+backend/evaluation/runs/
 
 # Testing & Linting
 .pytest_cache/
