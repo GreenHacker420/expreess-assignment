@@ -20,6 +20,7 @@ Your task is to determine whether a retrieved documentation chunk contains infor
 CRITERIA:
 - Grade based on semantic relevance and factual utility to the question's core information need, NOT superficial keyword overlap.
 - If the chunk contains relevant code examples, parameter definitions, or conceptual explanations that contribute to answering the question, mark relevant=true.
+- For a multi-part or synthesis question, mark a chunk relevant when it provides evidence for ANY requested aspect, even if that chunk alone cannot answer the entire question. Completeness is evaluated later during answer generation and grounding checks.
 - If the chunk is off-topic, unrelated, or only coincidentally mentions generic words, mark relevant=false.
 - Provide a concise 1-sentence reason.
 
