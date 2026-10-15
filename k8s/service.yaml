@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: express-rag-backend
+  namespace: s-harsh
+  labels:
+    app: express-rag-backend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http
+  selector:
+    app: express-rag-backend

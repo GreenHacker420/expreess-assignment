@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: express-rag-config
+  namespace: s-harsh
+  labels:
+    app: express-rag-backend
+data:
+  LLM_MODEL: "openai/gpt-oss-120b"
+  FAST_LLM_MODEL: "openai/gpt-oss-120b"
+  CHROMA_DIR: "backend/data/chroma"
+  DB_PATH: "backend/data/app.db"
+  MAX_RETRIES: "2"
+  TOP_K: "5"
+  LANGSMITH_TRACING: "false"

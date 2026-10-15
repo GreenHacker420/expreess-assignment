@@ -1,0 +1,128 @@
+name: CI/CD Pipeline - Test, Build & Deploy to nst-n1
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    name: Run Automated Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install Dependencies
+        run: uv sync --frozen
+
+      - name: Run Pytest Test Suite
+        run: uv run pytest backend/tests/ -v
+
+  build-and-push:
+    name: Build & Push Container Image
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Lowercase Repository Name
+        id: repo_name
+        run: echo "IMAGE_TAG_LOWER=$(echo '${{ env.REGISTRY }}/${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_TAG_LOWER }}:latest
+            ${{ env.IMAGE_TAG_LOWER }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to nst-n1 Kubernetes
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Cloudflared
+        run: |
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o /tmp/cloudflared.deb
+          sudo dpkg -i /tmp/cloudflared.deb
+
+      - name: Install sshpass
+        run: |
+          sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Configure SSH Client
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat << 'EOF' > ~/.ssh/config
+          Host nst-n1
+              HostName nst-n1.nstsdc.org
+              User harsh
+              ProxyCommand cloudflared access ssh --hostname %h
+              StrictHostKeyChecking no
+              UserKnownHostsFile /dev/null
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: Create Secret in Cluster RAM (Zero Disk Exposure)
+        env:
+          GROQ_KEY: ${{ secrets.GROQ_API_KEY }}
+          SSHPASS: ${{ secrets.NST_SSH_PASSWORD }}
+        run: |
+          # Generate secret manifest purely in memory (dry-run) and pipe directly into remote cluster
+          sshpass -e ssh nst-n1 "KUBECONFIG=~/.kube/config kubectl create secret generic express-rag-secret \
+            --namespace=s-harsh \
+            --from-literal=GROQ_API_KEY=\"$GROQ_KEY\" \
+            --dry-run=client -o yaml | KUBECONFIG=~/.kube/config kubectl apply -f -"
+
+      - name: Apply ConfigMap, Service, Ingress, and Deployment
+        env:
+          SSHPASS: ${{ secrets.NST_SSH_PASSWORD }}
+        run: |
+          sshpass -e ssh nst-n1 "KUBECONFIG=~/.kube/config kubectl apply -f -" < k8s/configmap.yaml
+          sshpass -e ssh nst-n1 "KUBECONFIG=~/.kube/config kubectl apply -f -" < k8s/service.yaml
+          sshpass -e ssh nst-n1 "KUBECONFIG=~/.kube/config kubectl apply -f -" < k8s/ingress.yaml
+          sshpass -e ssh nst-n1 "KUBECONFIG=~/.kube/config kubectl apply -f -" < k8s/deployment.yaml
+
+      - name: Verify Rollout Status
+        env:
+          SSHPASS: ${{ secrets.NST_SSH_PASSWORD }}
+        run: |
+          sshpass -e ssh nst-n1 "KUBECONFIG=~/.kube/config kubectl rollout status deployment/express-rag-backend -n s-harsh --timeout=180s"
+          sshpass -e ssh nst-n1 "KUBECONFIG=~/.kube/config kubectl get pods,svc,ingress -l app=express-rag-backend -n s-harsh"
