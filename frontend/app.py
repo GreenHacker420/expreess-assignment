@@ -11,6 +11,7 @@ Strictly styled with the Pastel Dreamland Adventure palette:
 - Icy Blue: #bde0fe
 - Sky Blue: #a2d2ff
 - Deep Plum Text: #2B1540 / #5B3F85
+- Pure Vector SVG graphics only (Zero emojis)
 """
 
 import base64
@@ -21,9 +22,12 @@ from typing import Any, Dict, List, Optional
 import httpx
 import streamlit as st
 
+# Vector SVG favicon
+FAVICON_PATH = os.path.join(os.path.dirname(__file__), "assets", "logo.svg")
+
 st.set_page_config(
     page_title="Technical Documentation Assistant · LangGraph RAG",
-    page_icon="📖",
+    page_icon=FAVICON_PATH if os.path.exists(FAVICON_PATH) else None,
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -41,7 +45,7 @@ SAMPLE_QUESTIONS = [
 
 
 # -----------------------------------------------------------------------------
-# Base64 Vector SVGs (Crisp Vector Icons Across All Browsers)
+# Base64 Vector SVGs (100% Crisp Vector Icons Across All Browsers)
 # -----------------------------------------------------------------------------
 def b64_svg(svg_code: str) -> str:
     encoded = base64.b64encode(svg_code.strip().encode("utf-8")).decode("utf-8")
@@ -53,7 +57,7 @@ URI_LOGO = b64_svg(
 )
 
 URI_SPARKLE = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5B3F85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg>"""
+    """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B3F85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg>"""
 )
 
 URI_DOC = b64_svg(
@@ -65,19 +69,39 @@ URI_UPLOAD = b64_svg(
 )
 
 URI_GRAPH = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><line x1="9" y1="6" x2="15" y2="6"/><line x1="6" y1="9" x2="6" y2="15"/><line x1="18" y1="9" x2="18" y2="15"/><line x1="8.5" y1="8.5" x2="15.5" y2="15.5"/></svg>"""
+    """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><line x1="9" y1="6" x2="15" y2="6"/><line x1="6" y1="9" x2="6" y2="15"/><line x1="18" y1="9" x2="18" y2="15"/><line x1="8.5" y1="8.5" x2="15.5" y2="15.5"/></svg>"""
 )
 
 URI_CHECK = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>"""
+    """<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#226B43" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>"""
 )
 
-URI_CITE = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5B3F85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>"""
+URI_CLOCK = b64_svg(
+    """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5B3F85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>"""
 )
 
-URI_INFO = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>"""
+URI_REFRESH = b64_svg(
+    """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5B3F85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>"""
+)
+
+URI_CODE = b64_svg(
+    """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>"""
+)
+
+URI_THUMB_UP = b64_svg(
+    """<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#226B43" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>"""
+)
+
+URI_THUMB_DOWN = b64_svg(
+    """<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#D45B7A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>"""
+)
+
+URI_CHAT = b64_svg(
+    """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5B3F85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>"""
+)
+
+URI_SEND = b64_svg(
+    """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>"""
 )
 
 
@@ -177,7 +201,7 @@ PASTEL_DREAMLAND_CSS = """
     background-color: #FFFFFF !important;
     border: 1px solid #E2D5ED !important;
     border-radius: 9999px !important;
-    padding: 8px 18px !important;
+    padding: 8px 20px !important;
     font-size: 13.5px !important;
     font-weight: 600 !important;
     color: #5B3F85 !important;
@@ -197,30 +221,6 @@ PASTEL_DREAMLAND_CSS = """
     font-weight: 700 !important;
 }
 
-/* Card styling */
-.rag-card {
-    background: #FFFFFF;
-    border: 1px solid #E2D5ED;
-    border-radius: 14px;
-    padding: 20px;
-    margin-bottom: 16px;
-    box-shadow: 0 2px 6px rgba(91, 63, 133, 0.03);
-}
-
-.rag-card-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 12px;
-}
-
-.rag-card-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: #2B1540;
-    margin: 0;
-}
-
 /* Metric badges row */
 .metric-pills {
     display: flex;
@@ -233,7 +233,7 @@ PASTEL_DREAMLAND_CSS = """
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 5px 12px;
+    padding: 6px 12px;
     border-radius: 8px;
     font-size: 12.5px;
     font-weight: 600;
@@ -290,7 +290,7 @@ PASTEL_DREAMLAND_CSS = """
     background: #FFFFFF;
     border: 1px solid #CDB4DB;
     border-radius: 12px;
-    padding: 14px;
+    padding: 16px;
     text-align: center;
     box-shadow: 0 1px 3px rgba(0,0,0,0.03);
 }
@@ -299,13 +299,13 @@ PASTEL_DREAMLAND_CSS = """
     font-weight: 700;
     color: #2B1540;
     font-size: 14px;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
 }
 
 .flow-node-desc {
     font-size: 12px;
     color: #6B5EA8;
-    line-height: 1.4;
+    line-height: 1.45;
 }
 
 /* Primary buttons */
@@ -327,6 +327,13 @@ PASTEL_DREAMLAND_CSS = """
 .stTextArea textarea:focus {
     border-color: #8B5BA6 !important;
     box-shadow: 0 0 0 2px rgba(139, 91, 166, 0.2) !important;
+}
+
+.section-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
 }
 </style>
 """
@@ -464,13 +471,13 @@ st.html(header_html)
 
 
 # -----------------------------------------------------------------------------
-# Main Application Tabs
+# Main Application Tabs (Pure Clean Text Headers, Vector Icons Inside)
 # -----------------------------------------------------------------------------
 tab_qa, tab_docs, tab_ingest, tab_arch = st.tabs([
-    "💬 Ask Assistant",
-    "📚 Document Corpus",
-    "📥 Ingest Documents",
-    "⚡ LangGraph Workflow",
+    "Ask Assistant",
+    "Document Corpus",
+    "Ingest Documents",
+    "LangGraph Workflow",
 ])
 
 
@@ -478,7 +485,13 @@ tab_qa, tab_docs, tab_ingest, tab_arch = st.tabs([
 # TAB 1: ASK ASSISTANT (Interactive Q&A)
 # =============================================================================
 with tab_qa:
-    st.markdown("### Technical Q&A Assistant")
+    title_row_html = f"""
+    <div class="section-title-row">
+        <img src="{URI_CHAT}" width="20" height="20" alt="Chat" />
+        <h3 style="margin: 0; color: #2B1540;">Technical Q&A Assistant</h3>
+    </div>
+    """
+    st.html(title_row_html)
     st.caption("Ask questions about the indexed FastAPI technical documentation. The assistant uses a self-corrective LangGraph pipeline to retrieve, grade, and cite source chunks.")
 
     # Sample Questions Row
@@ -500,7 +513,7 @@ with tab_qa:
     )
 
     col_btn, col_clear = st.columns([1, 5])
-    ask_clicked = col_btn.button("✨ Ask Assistant", type="primary", width="stretch")
+    ask_clicked = col_btn.button("Submit Question", type="primary", width="stretch")
     if col_clear.button("Clear", width="content"):
         st.session_state["active_question"] = ""
         st.session_state["last_query_response"] = None
@@ -522,7 +535,7 @@ with tab_qa:
     if res:
         st.markdown("---")
         
-        # Metrics Row
+        # Metrics Row with Vector SVGs
         query_type = res.get("query_type", "how-to")
         retries = res.get("retry_count", 0)
         retrieval_attempts = res.get("retrieval_attempts", 1)
@@ -542,7 +555,8 @@ with tab_qa:
                 {retry_text}
             </span>
             <span class="metric-pill pill-latency">
-                ⏱️ Latency: {latency}s ({retrieval_attempts} retrieval{'s' if retrieval_attempts > 1 else ''})
+                <img src="{URI_CLOCK}" width="14" height="14" alt="" />
+                Latency: {latency}s ({retrieval_attempts} retrieval{'s' if retrieval_attempts > 1 else ''})
             </span>
             <span class="metric-pill pill-grounded">
                 <img src="{URI_CHECK}" width="14" height="14" alt="" />
@@ -584,12 +598,12 @@ with tab_qa:
         if fb_status:
             st.success(f"Feedback recorded: {fb_status.title()}! Thank you.")
         else:
-            if fb_col1.button("👍 Helpful", key="fb_up", width="stretch"):
+            if fb_col1.button("Helpful", key="fb_up", width="stretch"):
                 if submit_feedback(query_id, "up", "Helpful answer"):
                     st.session_state["feedback_status"] = "helpful"
                     st.rerun()
 
-            if fb_col2.button("👎 Irrelevant", key="fb_down", width="stretch"):
+            if fb_col2.button("Irrelevant", key="fb_down", width="stretch"):
                 if submit_feedback(query_id, "down", "Needs improvement"):
                     st.session_state["feedback_status"] = "needs improvement"
                     st.rerun()
@@ -599,8 +613,14 @@ with tab_qa:
 # TAB 2: DOCUMENT CORPUS (ChromaDB Indexed Technical Docs)
 # =============================================================================
 with tab_docs:
-    st.markdown("### Indexed Technical Corpus")
-    st.caption("These documents are stored in ChromaDB and indexed into semantic chunks using `RecursiveCharacterTextSplitter`.")
+    docs_title_html = f"""
+    <div class="section-title-row">
+        <img src="{URI_DOC}" width="20" height="20" alt="Docs" />
+        <h3 style="margin: 0; color: #2B1540;">Indexed Technical Corpus</h3>
+    </div>
+    """
+    st.html(docs_title_html)
+    st.caption("These documents are stored in ChromaDB and indexed into semantic chunks using RecursiveCharacterTextSplitter.")
 
     docs = get_indexed_documents()
     if not docs:
@@ -616,7 +636,13 @@ with tab_docs:
             with st.container(border=True):
                 c_info, c_action = st.columns([5, 2])
                 with c_info:
-                    st.markdown(f"#### 📄 {title}")
+                    card_title_html = f"""
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                        <img src="{URI_DOC}" width="16" height="16" alt="Doc" />
+                        <h4 style="margin: 0; color: #2B1540;">{title}</h4>
+                    </div>
+                    """
+                    st.html(card_title_html)
                     st.caption(f"**Source:** [{source}]({source}) · **Chunks:** {chunk_count} · **Updated:** {updated_at}")
                 with c_action:
                     if st.button("Ask about this", key=f"ask_doc_{doc_id}", width="stretch"):
@@ -628,8 +654,14 @@ with tab_docs:
 # TAB 3: INGEST DOCUMENTS (Upload & Indexing)
 # =============================================================================
 with tab_ingest:
-    st.markdown("### Ingest New Technical Documentation")
-    st.caption("Upload technical documentation files (Markdown `.md` or Text `.txt`) to index them into ChromaDB and SQLite.")
+    ingest_title_html = f"""
+    <div class="section-title-row">
+        <img src="{URI_UPLOAD}" width="20" height="20" alt="Ingest" />
+        <h3 style="margin: 0; color: #2B1540;">Ingest New Technical Documentation</h3>
+    </div>
+    """
+    st.html(ingest_title_html)
+    st.caption("Upload technical documentation files (Markdown .md or Text .txt) to index them into ChromaDB and SQLite.")
 
     with st.container(border=True):
         uploaded_file = st.file_uploader(
@@ -640,7 +672,7 @@ with tab_ingest:
 
         if uploaded_file is not None:
             st.write(f"**Filename:** `{uploaded_file.name}` ({uploaded_file.size} bytes)")
-            if st.button("🚀 Ingest Document to ChromaDB", type="primary"):
+            if st.button("Ingest Document to ChromaDB", type="primary"):
                 with st.spinner("Processing document chunks, generating embeddings, and storing in ChromaDB..."):
                     result = upload_document(uploaded_file)
                     if result:
@@ -653,7 +685,13 @@ with tab_ingest:
 # TAB 4: LANGGRAPH WORKFLOW ARCHITECTURE
 # =============================================================================
 with tab_arch:
-    st.markdown("### LangGraph Self-Corrective RAG Architecture")
+    arch_title_html = f"""
+    <div class="section-title-row">
+        <img src="{URI_GRAPH}" width="20" height="20" alt="Workflow" />
+        <h3 style="margin: 0; color: #2B1540;">LangGraph Self-Corrective RAG Architecture</h3>
+    </div>
+    """
+    st.html(arch_title_html)
     st.caption("This assistant implements a deterministic, self-reflective StateGraph with document relevance grading and query rewriting.")
 
     # Workflow Visual Nodes
@@ -669,7 +707,7 @@ with tab_arch:
         st.markdown("""
         <div class="flow-node">
             <div class="flow-node-title">2. Chroma Retrieval</div>
-            <div class="flow-node-desc">Performs top-k semantic similarity search against ChromaDB, preserving document & chunk metadata intact.</div>
+            <div class="flow-node-desc">Performs top-k semantic similarity search against ChromaDB, preserving document and chunk metadata intact.</div>
         </div>
         """, unsafe_allow_html=True)
     with n3:
@@ -689,9 +727,15 @@ with tab_arch:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Self-Correction Explanation
+    # Self-Correction Explanation with Vector SVG Icon
     with st.container(border=True):
-        st.markdown("#### 🔄 Self-Correction & Conditional Routing")
+        routing_header_html = f"""
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <img src="{URI_REFRESH}" width="18" height="18" alt="Self-Correction" />
+            <h4 style="margin: 0; color: #2B1540;">Self-Correction & Conditional Routing</h4>
+        </div>
+        """
+        st.html(routing_header_html)
         st.markdown("""
         - **Document Grading Outcome:**
           - **If relevant documents found** &rarr; Routes directly to `generate`.
@@ -701,7 +745,13 @@ with tab_arch:
         """)
 
     with st.container(border=True):
-        st.markdown("#### 📐 Typed Graph State Schema")
+        schema_header_html = f"""
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <img src="{URI_CODE}" width="18" height="18" alt="Schema" />
+            <h4 style="margin: 0; color: #2B1540;">Typed Graph State Schema</h4>
+        </div>
+        """
+        st.html(schema_header_html)
         st.code("""class GraphState(TypedDict):
     question: str
     transformed_query: Optional[str]
