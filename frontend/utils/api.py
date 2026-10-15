@@ -58,7 +58,7 @@ def submit_feedback(query_id: str, rating: str, comment: Optional[str] = None) -
             json={"query_id": query_id, "rating": rating, "comment": comment or ""},
             timeout=5.0,
         )
-        return resp.status_code == 200
+        return resp.is_success
     except Exception:
         return False
 
@@ -72,7 +72,7 @@ def upload_document(uploaded_file) -> Optional[Dict[str, Any]]:
             files=files,
             timeout=30.0,
         )
-        if resp.status_code == 200:
+        if resp.is_success:
             return resp.json()
     except Exception:
         pass

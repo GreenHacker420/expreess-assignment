@@ -133,14 +133,19 @@ def render_qa_tab():
             st.info("No specific document chunks were cited for this response.")
 
         # User Feedback Section
-        st.markdown("<h5 style='color: #086288; margin-top: 20px;'>Was this answer helpful?</h5>", unsafe_allow_html=True)
-        fb_col1, fb_col2, _ = st.columns([1.2, 1.2, 5.6])
+        st.markdown("<h5 style='color: #086288; margin-top: 24px; margin-bottom: 8px;'>Was this answer helpful?</h5>", unsafe_allow_html=True)
         query_id = res.get("query_id", "")
         fb_status = st.session_state.get("feedback_status")
 
         if fb_status:
-            st.success(f"Feedback recorded: {fb_status.title()}! Thank you.")
+            st.markdown(f"""
+            <div style="background: #EBF7EE; border: 1px solid #BCE5C8; color: #1B6338; border-radius: 8px; padding: 10px 16px; font-weight: 600; font-size: 13.5px; display: inline-flex; align-items: center; gap: 8px;">
+                <img src="{URI_CHECK}" width="16" height="16" alt="Check" />
+                Feedback recorded: <em>{fb_status.title()}</em>. Thank you for your feedback!
+            </div>
+            """, unsafe_allow_html=True)
         else:
+            fb_col1, fb_col2, _ = st.columns([1.2, 1.2, 5.6])
             if fb_col1.button("Helpful", key="fb_up", width="stretch"):
                 if submit_feedback(query_id, "up", "Helpful answer"):
                     st.session_state["feedback_status"] = "helpful"
