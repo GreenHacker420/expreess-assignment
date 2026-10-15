@@ -1,21 +1,6 @@
-"""Technical Documentation Assistant — Express Analytics Take-Home Assignment.
-
-A self-corrective Retrieval-Augmented Generation (RAG) assistant for technical
-documentation built with LangGraph, ChromaDB, and FastAPI.
-
-Strictly styled with the Pastel Dreamland Adventure palette:
-- Solid Clean Background: #FEF6FB (Zero gradients)
-- Pink Orchid: #cdb4db
-- Pastel Petal: #ffc8dd
-- Blush Pop: #ffafcc
-- Icy Blue: #bde0fe
-- Sky Blue: #a2d2ff
-- Deep Plum Text: #2B1540 / #5B3F85
-- Pure Vector SVG graphics only (Zero emojis)
-"""
-
 import base64
 import os
+import re
 import time
 from typing import Any, Dict, List, Optional
 
@@ -45,7 +30,7 @@ SAMPLE_QUESTIONS = [
 
 
 # -----------------------------------------------------------------------------
-# Base64 Vector SVGs (100% Crisp Vector Icons Across All Browsers)
+# Base64 Vector SVGs (Curated with #086288 and #4D8DBA strokes)
 # -----------------------------------------------------------------------------
 def b64_svg(svg_code: str) -> str:
     encoded = base64.b64encode(svg_code.strip().encode("utf-8")).decode("utf-8")
@@ -53,101 +38,93 @@ def b64_svg(svg_code: str) -> str:
 
 
 URI_LOGO = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5B3F85" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><polyline points="10 7 14 11 10 15"/></svg>"""
+    """<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#086288" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><polyline points="10 7 14 11 10 15"/></svg>"""
 )
 
 URI_SPARKLE = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B3F85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg>"""
+    """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#086288" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg>"""
 )
 
 URI_DOC = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>"""
+    """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#086288" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>"""
 )
 
 URI_UPLOAD = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5B3F85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>"""
+    """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#086288" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>"""
 )
 
 URI_GRAPH = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><line x1="9" y1="6" x2="15" y2="6"/><line x1="6" y1="9" x2="6" y2="15"/><line x1="18" y1="9" x2="18" y2="15"/><line x1="8.5" y1="8.5" x2="15.5" y2="15.5"/></svg>"""
+    """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#086288" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><line x1="9" y1="6" x2="15" y2="6"/><line x1="6" y1="9" x2="6" y2="15"/><line x1="18" y1="9" x2="18" y2="15"/><line x1="8.5" y1="8.5" x2="15.5" y2="15.5"/></svg>"""
 )
 
 URI_CHECK = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#226B43" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>"""
+    """<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#086288" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>"""
 )
 
 URI_CLOCK = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5B3F85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>"""
+    """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4D8DBA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>"""
 )
 
 URI_REFRESH = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5B3F85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>"""
+    """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#086288" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>"""
 )
 
 URI_CODE = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A7CC9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>"""
-)
-
-URI_THUMB_UP = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#226B43" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>"""
-)
-
-URI_THUMB_DOWN = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#D45B7A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>"""
+    """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#086288" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>"""
 )
 
 URI_CHAT = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5B3F85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>"""
+    """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#086288" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>"""
 )
 
-URI_SEND = b64_svg(
-    """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>"""
+URI_LAYERS = b64_svg(
+    """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4D8DBA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>"""
 )
 
 
 # -----------------------------------------------------------------------------
-# Pastel Dreamland Adventure CSS (Solid Clean Background, Zero Gradients)
+# Clean Ocean Azure & Warm Cream CSS Design System
 # -----------------------------------------------------------------------------
-PASTEL_DREAMLAND_CSS = """
+OCEAN_CREAM_CSS = """
 <style>
-/* Clean flat background */
+/* Clean Soft Oceanic Background */
 .stApp {
-    background-color: #FEF6FB !important;
+    background-color: #F5F9FC !important;
     background-image: none !important;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-    color: #2B1540 !important;
+    color: #0E2A38 !important;
 }
 
 .main .block-container {
     max-width: 1200px !important;
     padding-top: 1.5rem !important;
-    padding-bottom: 3rem !important;
+    padding-bottom: 3.5rem !important;
 }
 
-/* Header container */
+/* Top Header Card */
 .top-header-banner {
     display: flex;
     align-items: center;
     justify-content: space-between;
     background: #FFFFFF;
-    border: 1px solid #CDB4DB;
+    border: 1px solid #D8ECF8;
     border-radius: 16px;
-    padding: 18px 24px;
+    padding: 20px 24px;
     margin-bottom: 24px;
-    box-shadow: 0 2px 8px rgba(91, 63, 133, 0.04);
+    box-shadow: 0 4px 16px rgba(8, 98, 136, 0.05);
 }
 
 .top-brand {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 16px;
 }
 
 .top-brand-icon {
-    width: 44px;
-    height: 44px;
-    background: #FCE8F3;
-    border: 1px solid #FFC8DD;
+    width: 48px;
+    height: 48px;
+    background: #EBF5FB;
+    border: 1px solid #97D7FF;
     border-radius: 12px;
     display: flex;
     align-items: center;
@@ -157,24 +134,43 @@ PASTEL_DREAMLAND_CSS = """
 .top-brand-title {
     font-size: 20px;
     font-weight: 700;
-    color: #2B1540;
+    color: #086288;
     margin: 0;
-    line-height: 1.2;
+    line-height: 1.25;
 }
 
 .top-brand-subtitle {
     font-size: 13px;
-    color: #6B5EA8;
-    margin: 2px 0 0 0;
+    color: #4D8DBA;
+    margin: 3px 0 0 0;
 }
 
-.status-pill {
+.header-badges {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.status-pill-blue {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: #E8F4FD;
-    border: 1px solid #BDE0FE;
-    color: #1A5490;
+    background: #EBF5FB;
+    border: 1px solid #97D7FF;
+    color: #086288;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+.status-pill-warm {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #FFEFC4;
+    border: 1px solid #F5DC9A;
+    color: #614605;
     padding: 6px 14px;
     border-radius: 9999px;
     font-size: 12.5px;
@@ -185,160 +181,244 @@ PASTEL_DREAMLAND_CSS = """
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #3A8C6E;
+    background: #086288;
 }
 
-/* Tab navigation styling */
+.status-dot-green {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #2E8B57;
+}
+
+/* Tabs Navigation Styling */
 .stTabs [data-baseweb="tab-list"] {
     gap: 8px;
     background-color: transparent !important;
-    border-bottom: 1px solid #E2D5ED !important;
+    border-bottom: 2px solid #D8ECF8 !important;
     padding-bottom: 4px;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
 }
 
 .stTabs [data-baseweb="tab"] {
     background-color: #FFFFFF !important;
-    border: 1px solid #E2D5ED !important;
-    border-radius: 9999px !important;
-    padding: 8px 20px !important;
-    font-size: 13.5px !important;
+    border: 1px solid #D8ECF8 !important;
+    border-radius: 8px !important;
+    padding: 8px 22px !important;
+    font-size: 14px !important;
     font-weight: 600 !important;
-    color: #5B3F85 !important;
+    color: #4D8DBA !important;
     transition: all 0.15s ease-in-out;
 }
 
 .stTabs [data-baseweb="tab"]:hover {
-    background-color: #FCE8F3 !important;
-    border-color: #FFC8DD !important;
-    color: #2B1540 !important;
+    background-color: #EBF5FB !important;
+    border-color: #97D7FF !important;
+    color: #086288 !important;
 }
 
 .stTabs [aria-selected="true"] {
-    background-color: #CDB4DB !important;
-    border-color: #B39CC8 !important;
-    color: #2B1540 !important;
+    background-color: #086288 !important;
+    border-color: #086288 !important;
+    color: #FFFFFF !important;
     font-weight: 700 !important;
 }
 
-/* Metric badges row */
+/* Metric Badges Row */
 .metric-pills {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    margin: 14px 0;
+    margin: 16px 0;
 }
 
 .metric-pill {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: 8px;
     font-size: 12.5px;
     font-weight: 600;
 }
 
 .pill-type {
-    background: #E8F4FD;
-    border: 1px solid #BDE0FE;
-    color: #1A5490;
+    background: #EBF5FB;
+    border: 1px solid #97D7FF;
+    color: #086288;
 }
 
 .pill-retries {
-    background: #FCE8F3;
-    border: 1px solid #FFC8DD;
-    color: #8B5BA6;
+    background: #FFEFC4;
+    border: 1px solid #F3DC9B;
+    color: #614605;
 }
 
 .pill-latency {
-    background: #F0E8FB;
-    border: 1px solid #CDB4DB;
-    color: #5B3F85;
+    background: #FFFFFF;
+    border: 1px solid #D8ECF8;
+    color: #4D8DBA;
 }
 
-.pill-grounded {
-    background: #EAF7EE;
-    border: 1px solid #B8E4C9;
-    color: #226B43;
+.pill-status {
+    background: #EBF7EE;
+    border: 1px solid #BCE5C8;
+    color: #1B6338;
 }
 
-/* Citation card */
+/* Citation Card */
 .citation-box {
-    background: #FBF8FD;
-    border: 1px solid #E6DCF0;
-    border-radius: 10px;
-    padding: 12px 16px;
+    background: #FFFFFF;
+    border: 1px solid #D8ECF8;
+    border-left: 4px solid #086288;
+    border-radius: 8px;
+    padding: 12px 18px;
     margin-top: 10px;
     font-size: 13px;
-    color: #3D2258;
+    color: #0E2A38;
+    box-shadow: 0 1px 4px rgba(8, 98, 136, 0.03);
 }
 
 .citation-tag {
     display: inline-block;
-    background: #CDB4DB;
-    color: #2B1540;
+    background: #FFEFC4;
+    color: #614605;
     font-weight: 700;
-    padding: 2px 7px;
+    padding: 2px 8px;
     border-radius: 4px;
-    font-size: 11px;
-    margin-right: 6px;
+    font-size: 11.5px;
+    margin-right: 8px;
+    border: 1px solid #F3DC9B;
 }
 
-/* Node flow badge */
+/* Document Grid Cards */
+.doc-card-container {
+    background: #FFFFFF;
+    border: 1px solid #D8ECF8;
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    box-shadow: 0 2px 8px rgba(8, 98, 136, 0.04);
+}
+
+.doc-card-container:hover {
+    border-color: #97D7FF;
+    box-shadow: 0 4px 14px rgba(8, 98, 136, 0.08);
+}
+
+.doc-badge-pill {
+    background: #FFEFC4;
+    color: #614605;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    border: 1px solid #F3DC9B;
+    display: inline-block;
+}
+
+.doc-chunk-pill {
+    background: #EBF5FB;
+    color: #086288;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    border: 1px solid #97D7FF;
+    display: inline-block;
+}
+
+/* Architecture Node Flow */
 .flow-node {
     background: #FFFFFF;
-    border: 1px solid #CDB4DB;
+    border: 1px solid #D8ECF8;
     border-radius: 12px;
-    padding: 16px;
+    padding: 18px 16px;
     text-align: center;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    box-shadow: 0 2px 6px rgba(8, 98, 136, 0.04);
+    height: 100%;
 }
 
 .flow-node-title {
     font-weight: 700;
-    color: #2B1540;
-    font-size: 14px;
+    color: #086288;
+    font-size: 14.5px;
     margin-bottom: 6px;
 }
 
 .flow-node-desc {
     font-size: 12px;
-    color: #6B5EA8;
-    line-height: 1.45;
+    color: #4D8DBA;
+    line-height: 1.5;
 }
 
-/* Primary buttons */
+/* Primary and Outline Buttons */
 .stButton button {
-    border-radius: 9999px !important;
+    border-radius: 8px !important;
     font-weight: 600 !important;
     font-size: 13.5px !important;
     transition: all 0.15s ease-in-out !important;
 }
 
+.stButton button[kind="primary"] {
+    background-color: #086288 !important;
+    color: #FFFFFF !important;
+    border: 1px solid #086288 !important;
+}
+
+.stButton button[kind="primary"]:hover {
+    background-color: #4D8DBA !important;
+    border-color: #4D8DBA !important;
+    color: #FFFFFF !important;
+}
+
+.stButton button[kind="secondary"] {
+    background-color: #FFFFFF !important;
+    color: #086288 !important;
+    border: 1px solid #D8ECF8 !important;
+}
+
+.stButton button[kind="secondary"]:hover {
+    background-color: #EBF5FB !important;
+    border-color: #97D7FF !important;
+    color: #086288 !important;
+}
+
 /* Text area styling */
 .stTextArea textarea {
-    border: 1px solid #CDB4DB !important;
-    border-radius: 12px !important;
+    border: 1px solid #D8ECF8 !important;
+    border-radius: 10px !important;
     background-color: #FFFFFF !important;
-    color: #2B1540 !important;
+    color: #0E2A38 !important;
+    font-size: 14px !important;
 }
 
 .stTextArea textarea:focus {
-    border-color: #8B5BA6 !important;
-    box-shadow: 0 0 0 2px rgba(139, 91, 166, 0.2) !important;
+    border-color: #086288 !important;
+    box-shadow: 0 0 0 2px rgba(8, 98, 136, 0.15) !important;
 }
 
+/* Section Header Row */
 .section-title-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: 10px;
+    margin-bottom: 4px;
 }
 </style>
 """
 
-st.html(PASTEL_DREAMLAND_CSS)
+st.html(OCEAN_CREAM_CSS)
+
+
+# -----------------------------------------------------------------------------
+# Clean Title Helper
+# -----------------------------------------------------------------------------
+def format_doc_title(raw_title: str) -> str:
+    """Format markdown titles by stripping out bracket tags like '{ #path-params }'."""
+    clean = re.sub(r"\{.*?\}", "", raw_title).strip()
+    return clean if clean else raw_title
 
 
 # -----------------------------------------------------------------------------
@@ -440,14 +520,20 @@ if health and health.get("status") == "healthy":
     doc_count = health.get("document_count", 5)
     chunk_count = health.get("chunk_count", 101)
     status_markup = f"""
-    <div class="status-pill">
-        <span class="status-dot"></span>
-        ChromaDB Ready · {doc_count} Docs · {chunk_count} Chunks
+    <div class="header-badges">
+        <div class="status-pill-blue">
+            <span class="status-dot"></span>
+            ChromaDB Ready · {doc_count} Docs · {chunk_count} Chunks
+        </div>
+        <div class="status-pill-warm">
+            <span class="status-dot-green"></span>
+            LangGraph Active
+        </div>
     </div>
     """
 else:
     status_markup = """
-    <div class="status-pill" style="background: #FEE8E8; border-color: #F8B4B4; color: #9A2828;">
+    <div class="status-pill-blue" style="background: #FEE8E8; border-color: #F8B4B4; color: #9A2828;">
         <span class="status-dot" style="background: #D45B7A;"></span>
         Connecting to Backend...
     </div>
@@ -457,7 +543,7 @@ header_html = f"""
 <div class="top-header-banner">
     <div class="top-brand">
         <div class="top-brand-icon">
-            <img src="{URI_LOGO}" width="24" height="24" alt="RAG Assistant Logo" />
+            <img src="{URI_LOGO}" width="26" height="26" alt="RAG Assistant Logo" />
         </div>
         <div>
             <h1 class="top-brand-title">Express Analytics · Documentation Assistant</h1>
@@ -471,7 +557,7 @@ st.html(header_html)
 
 
 # -----------------------------------------------------------------------------
-# Main Application Tabs (Pure Clean Text Headers, Vector Icons Inside)
+# Main Application Tabs
 # -----------------------------------------------------------------------------
 tab_qa, tab_docs, tab_ingest, tab_arch = st.tabs([
     "Ask Assistant",
@@ -488,18 +574,18 @@ with tab_qa:
     title_row_html = f"""
     <div class="section-title-row">
         <img src="{URI_CHAT}" width="20" height="20" alt="Chat" />
-        <h3 style="margin: 0; color: #2B1540;">Technical Q&A Assistant</h3>
+        <h3 style="margin: 0; color: #086288; font-size: 18px;">Technical Q&A Assistant</h3>
     </div>
     """
     st.html(title_row_html)
-    st.caption("Ask questions about the indexed FastAPI technical documentation. The assistant uses a self-corrective LangGraph pipeline to retrieve, grade, and cite source chunks.")
+    st.caption("Ask questions about the indexed FastAPI documentation. The assistant evaluates document relevance and self-corrects with query rewrites if context is insufficient.")
 
     # Sample Questions Row
-    st.markdown("**Quick Sample Questions:**")
+    st.markdown("<p style='font-size: 13px; font-weight: 600; color: #086288; margin-bottom: 6px;'>Quick Sample Questions:</p>", unsafe_allow_html=True)
     cols = st.columns(len(SAMPLE_QUESTIONS))
     for i, q in enumerate(SAMPLE_QUESTIONS):
         short_label = q.split("?")[0].replace("How do I ", "").replace("What is the ", "")
-        if cols[i].button(short_label[:24] + "...", key=f"sample_{i}", width="stretch"):
+        if cols[i].button(short_label[:22] + "...", key=f"sample_{i}", width="stretch"):
             st.session_state["active_question"] = q
             st.rerun()
 
@@ -512,9 +598,9 @@ with tab_qa:
         label_visibility="collapsed",
     )
 
-    col_btn, col_clear = st.columns([1, 5])
+    col_btn, col_clear, _ = st.columns([1.5, 1, 5.5])
     ask_clicked = col_btn.button("Submit Question", type="primary", width="stretch")
-    if col_clear.button("Clear", width="content"):
+    if col_clear.button("Clear", width="stretch"):
         st.session_state["active_question"] = ""
         st.session_state["last_query_response"] = None
         st.rerun()
@@ -523,7 +609,7 @@ with tab_qa:
         if not user_query.strip():
             st.warning("Please enter a technical question to ask.")
         else:
-            with st.spinner("Analyzing query, retrieving chunks, and verifying relevance..."):
+            with st.spinner("Analyzing query intent, retrieving chunks, and grading relevance..."):
                 run_rag_query(user_query.strip())
                 st.session_state["active_question"] = user_query.strip()
                 st.rerun()
@@ -533,9 +619,9 @@ with tab_qa:
     latency = st.session_state.get("last_query_latency", 0.0)
 
     if res:
-        st.markdown("---")
-        
-        # Metrics Row with Vector SVGs
+        st.markdown("<hr style='border: none; border-top: 1px solid #D8ECF8; margin: 24px 0;' />", unsafe_allow_html=True)
+
+        # Metrics Row
         query_type = res.get("query_type", "how-to")
         retries = res.get("retry_count", 0)
         retrieval_attempts = res.get("retrieval_attempts", 1)
@@ -551,14 +637,14 @@ with tab_qa:
                 Intent: {query_type.upper()}
             </span>
             <span class="metric-pill pill-retries">
-                <img src="{URI_GRAPH}" width="14" height="14" alt="" />
+                <img src="{URI_REFRESH}" width="14" height="14" alt="" />
                 {retry_text}
             </span>
             <span class="metric-pill pill-latency">
                 <img src="{URI_CLOCK}" width="14" height="14" alt="" />
                 Latency: {latency}s ({retrieval_attempts} retrieval{'s' if retrieval_attempts > 1 else ''})
             </span>
-            <span class="metric-pill pill-grounded">
+            <span class="metric-pill pill-status">
                 <img src="{URI_CHECK}" width="14" height="14" alt="" />
                 Status: {status.title()} ({len(citations)} Citations)
             </span>
@@ -568,19 +654,22 @@ with tab_qa:
 
         # Grounded Answer Container
         with st.container(border=True):
-            st.markdown("#### Answer")
+            st.markdown("<h4 style='color: #086288; margin-top: 0;'>Answer</h4>", unsafe_allow_html=True)
             st.markdown(res.get("answer", ""))
 
         # Citations Section
         if citations:
-            st.markdown("#### Grounded Citations")
+            st.markdown("<h4 style='color: #086288; margin-top: 20px;'>Grounded Source Citations</h4>", unsafe_allow_html=True)
             for cit in citations:
+                raw_t = cit.get("title", "Document")
+                clean_t = format_doc_title(raw_t)
+                clean_sec = format_doc_title(cit.get("section", "General"))
                 cit_html = f"""
                 <div class="citation-box">
                     <span class="citation-tag">[{cit.get('label', 'S1')}]</span>
-                    <strong>{cit.get('title', 'Document')}</strong> — <em>{cit.get('section', 'General')}</em>
-                    <div style="font-size: 11.5px; color: #6B5EA8; margin-top: 4px;">
-                        Chunk ID: <code>{cit.get('chunk_id', '')}</code> · Source: <a href="{cit.get('source', '')}" target="_blank" style="color: #4A7CC9;">{cit.get('source', '')}</a>
+                    <strong style="color: #086288;">{clean_t}</strong> — <em>{clean_sec}</em>
+                    <div style="font-size: 11.5px; color: #4D8DBA; margin-top: 4px;">
+                        Chunk ID: <code>{cit.get('chunk_id', '')}</code> · Source: <a href="{cit.get('source', '')}" target="_blank" style="color: #086288; font-weight: 500;">{cit.get('source', '')}</a>
                     </div>
                 </div>
                 """
@@ -589,8 +678,8 @@ with tab_qa:
             st.info("No specific document chunks were cited for this response.")
 
         # User Feedback Section
-        st.markdown("##### Was this answer helpful?")
-        fb_col1, fb_col2, fb_col3 = st.columns([1, 1, 6])
+        st.markdown("<h5 style='color: #086288; margin-top: 20px;'>Was this answer helpful?</h5>", unsafe_allow_html=True)
+        fb_col1, fb_col2, fb_col3 = st.columns([1.2, 1.2, 5.6])
         query_id = res.get("query_id", "")
         
         fb_status = st.session_state.get("feedback_status")
@@ -616,37 +705,48 @@ with tab_docs:
     docs_title_html = f"""
     <div class="section-title-row">
         <img src="{URI_DOC}" width="20" height="20" alt="Docs" />
-        <h3 style="margin: 0; color: #2B1540;">Indexed Technical Corpus</h3>
+        <h3 style="margin: 0; color: #086288; font-size: 18px;">Indexed Technical Corpus</h3>
     </div>
     """
     st.html(docs_title_html)
-    st.caption("These documents are stored in ChromaDB and indexed into semantic chunks using RecursiveCharacterTextSplitter.")
+    st.caption("Technical documents indexed in ChromaDB using RecursiveCharacterTextSplitter (800 target chunk size, 150 overlap).")
 
     docs = get_indexed_documents()
     if not docs:
         st.info("Loading documents from backend...")
     else:
-        for doc in docs:
+        # Display in a clean, structured 2-column card grid
+        c1, c2 = st.columns(2)
+        for idx, doc in enumerate(docs):
+            target_col = c1 if idx % 2 == 0 else c2
             doc_id = doc.get("document_id", "")
-            title = doc.get("title", doc_id).replace("{ #", "").replace(" }", "")
+            raw_title = doc.get("title", doc_id)
+            title = format_doc_title(raw_title)
             source = doc.get("source", "")
             chunk_count = doc.get("chunk_count", 0)
             updated_at = doc.get("updated_at", "")[:10]
 
-            with st.container(border=True):
-                c_info, c_action = st.columns([5, 2])
-                with c_info:
-                    card_title_html = f"""
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                        <img src="{URI_DOC}" width="16" height="16" alt="Doc" />
-                        <h4 style="margin: 0; color: #2B1540;">{title}</h4>
+            with target_col:
+                with st.container(border=True):
+                    card_header_html = f"""
+                    <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 36px; height: 36px; background: #EBF5FB; border: 1px solid #97D7FF; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                <img src="{URI_DOC}" width="18" height="18" alt="Doc" />
+                            </div>
+                            <div>
+                                <h4 style="margin: 0; color: #086288; font-size: 16px;">{title}</h4>
+                                <span style="font-size: 11px; color: #4D8DBA;">{doc_id}</span>
+                            </div>
+                        </div>
+                        <span class="doc-badge-pill">{chunk_count} Chunks</span>
                     </div>
                     """
-                    st.html(card_title_html)
-                    st.caption(f"**Source:** [{source}]({source}) · **Chunks:** {chunk_count} · **Updated:** {updated_at}")
-                with c_action:
-                    if st.button("Ask about this", key=f"ask_doc_{doc_id}", width="stretch"):
-                        st.session_state["active_question"] = f"Explain how {title} works in FastAPI with an example."
+                    st.html(card_header_html)
+                    st.caption(f"**Source:** [{source}]({source}) · **Indexed:** {updated_at}")
+                    
+                    if st.button("Ask a question about this doc", key=f"ask_doc_{doc_id}", width="stretch"):
+                        st.session_state["active_question"] = f"Explain how {title} works in FastAPI with a code example."
                         st.rerun()
 
 
@@ -657,7 +757,7 @@ with tab_ingest:
     ingest_title_html = f"""
     <div class="section-title-row">
         <img src="{URI_UPLOAD}" width="20" height="20" alt="Ingest" />
-        <h3 style="margin: 0; color: #2B1540;">Ingest New Technical Documentation</h3>
+        <h3 style="margin: 0; color: #086288; font-size: 18px;">Ingest New Technical Documentation</h3>
     </div>
     """
     st.html(ingest_title_html)
@@ -667,11 +767,16 @@ with tab_ingest:
         uploaded_file = st.file_uploader(
             "Select technical documentation file to ingest:",
             type=["md", "txt"],
-            help="Files will be parsed, split into 800-token chunks with 150-token overlap, and embedded via all-MiniLM-L6-v2.",
+            help="Files are split into 800-token chunks with 150-token overlap and embedded with all-MiniLM-L6-v2.",
         )
 
         if uploaded_file is not None:
-            st.write(f"**Filename:** `{uploaded_file.name}` ({uploaded_file.size} bytes)")
+            st.markdown(f"""
+            <div style="background: #EBF5FB; border: 1px solid #97D7FF; border-radius: 8px; padding: 10px 14px; margin: 12px 0;">
+                <strong style="color: #086288;">File Ready:</strong> <code>{uploaded_file.name}</code> ({uploaded_file.size} bytes)
+            </div>
+            """, unsafe_allow_html=True)
+            
             if st.button("Ingest Document to ChromaDB", type="primary"):
                 with st.spinner("Processing document chunks, generating embeddings, and storing in ChromaDB..."):
                     result = upload_document(uploaded_file)
@@ -688,37 +793,37 @@ with tab_arch:
     arch_title_html = f"""
     <div class="section-title-row">
         <img src="{URI_GRAPH}" width="20" height="20" alt="Workflow" />
-        <h3 style="margin: 0; color: #2B1540;">LangGraph Self-Corrective RAG Architecture</h3>
+        <h3 style="margin: 0; color: #086288; font-size: 18px;">LangGraph Self-Corrective RAG Architecture</h3>
     </div>
     """
     st.html(arch_title_html)
-    st.caption("This assistant implements a deterministic, self-reflective StateGraph with document relevance grading and query rewriting.")
+    st.caption("A deterministic StateGraph implementing intent classification, semantic retrieval, document relevance grading, and self-corrective query refinement.")
 
     # Workflow Visual Nodes
     n1, n2, n3, n4 = st.columns(4)
     with n1:
-        st.markdown("""
+        st.markdown(f"""
         <div class="flow-node">
             <div class="flow-node-title">1. Query Analysis</div>
             <div class="flow-node-desc">Categorizes query intent (how-to, conceptual, api_reference) and rewrites search phrasing for optimal vector search.</div>
         </div>
         """, unsafe_allow_html=True)
     with n2:
-        st.markdown("""
+        st.markdown(f"""
         <div class="flow-node">
             <div class="flow-node-title">2. Chroma Retrieval</div>
             <div class="flow-node-desc">Performs top-k semantic similarity search against ChromaDB, preserving document and chunk metadata intact.</div>
         </div>
         """, unsafe_allow_html=True)
     with n3:
-        st.markdown("""
+        st.markdown(f"""
         <div class="flow-node">
             <div class="flow-node-title">3. Relevance Grading</div>
             <div class="flow-node-desc">Evaluates each retrieved chunk using structured LLM output (yes/no). Filters out noise before generation.</div>
         </div>
         """, unsafe_allow_html=True)
     with n4:
-        st.markdown("""
+        st.markdown(f"""
         <div class="flow-node">
             <div class="flow-node-title">4. Grounded Generation</div>
             <div class="flow-node-desc">Synthesizes a factual answer citing retrieved source chunks explicitly [S1], [S2] without hallucinating.</div>
@@ -732,7 +837,7 @@ with tab_arch:
         routing_header_html = f"""
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
             <img src="{URI_REFRESH}" width="18" height="18" alt="Self-Correction" />
-            <h4 style="margin: 0; color: #2B1540;">Self-Correction & Conditional Routing</h4>
+            <h4 style="margin: 0; color: #086288;">Self-Correction & Conditional Routing</h4>
         </div>
         """
         st.html(routing_header_html)
@@ -748,7 +853,7 @@ with tab_arch:
         schema_header_html = f"""
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
             <img src="{URI_CODE}" width="18" height="18" alt="Schema" />
-            <h4 style="margin: 0; color: #2B1540;">Typed Graph State Schema</h4>
+            <h4 style="margin: 0; color: #086288;">Typed Graph State Schema</h4>
         </div>
         """
         st.html(schema_header_html)
