@@ -2,6 +2,7 @@
 
 from contextlib import asynccontextmanager
 import logging
+from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -81,6 +82,17 @@ async def lifespan(app: FastAPI):
             from langgraph.checkpoint.memory import MemorySaver
             app.state.checkpointer = MemorySaver()
             app.state._checkpointer_cm = None
+
+    # Auto-seed corpus on startup if vector store is empty and manifest exists
+    if hasattr(app.state, "vector_store") and app.state.vector_store.count_chunks() == 0:
+        manifest_p = Path(settings.manifest_path)
+        if manifest_p.exists() and hasattr(app.state, "ingestion"):
+            try:
+                logger.info("Vector store is empty on startup. Auto-ingesting manifest: %s", manifest_p)
+                app.state.ingestion.ingest_manifest(manifest_p)
+                logger.info("Auto-seeded corpus successfully. Vector chunks: %d", app.state.vector_store.count_chunks())
+            except Exception as e:
+                logger.warning("Auto-seed corpus failed: %s", e)
 
     if not hasattr(app.state, "graph"):
         app.state.graph = build_rag_graph(

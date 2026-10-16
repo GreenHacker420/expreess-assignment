@@ -39,13 +39,15 @@ venv.bak/
 
 # Vector databases & local storage
 chroma_db/
-backend/data/chroma/
 faiss_index/
 *.chroma
 *.sqlite3
 *.db
 *.db-shm
 *.db-wal
+!backend/data/app.db
+!backend/data/chroma/
+!backend/data/chroma/**
 vectorstore/
 data/vectorstore/
 storage/
