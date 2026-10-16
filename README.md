@@ -44,22 +44,22 @@ The assistant executes a deterministic, self-correcting state graph implemented 
 
 ```mermaid
 flowchart TD
-    START([START]) --> analyze_query[Node: analyze_query\nIntent classification & query rewriting]
-    analyze_query --> retrieve[Node: retrieve\nLangChain Chroma retriever over focused queries]
-    retrieve --> grade_documents[Node: grade_documents\nStructured LLM relevance scoring]
+    START([START]) --> analyze_query["Node: analyze_query<br/>Intent classification & query rewriting"]
+    analyze_query --> retrieve["Node: retrieve<br/>LangChain Chroma retriever over focused queries"]
+    retrieve --> grade_documents["Node: grade_documents<br/>Structured LLM relevance scoring"]
     
     grade_documents --> route_decision{route_after_grading}
     
-    route_decision -- "Relevant Chunks Found" --> generate[Node: generate\nSynthesize answer with citations [S1] [S2]]
-    route_decision -- "No Relevant Chunks & retries < MAX" --> rewrite_query[Node: rewrite_query\nRefine search phrasing & retry_count++]
-    route_decision -- "Exhausted & web not tried" --> web_search[Optional Tavily web search]
+    route_decision -- "Relevant Chunks Found" --> generate["Node: generate<br/>Synthesize answer with inline source citations"]
+    route_decision -- "No Relevant Chunks & retries < MAX" --> rewrite_query["Node: rewrite_query<br/>Refine search phrasing & retry_count++"]
+    route_decision -- "Exhausted & web not tried" --> web_search["Optional Tavily web search"]
     web_search --> grade_documents
-    route_decision -- "Exhausted & web tried/no service" --> fallback[Node: fallback\nSafe refusal, zero hallucination]
+    route_decision -- "Exhausted & web tried/no service" --> fallback["Node: fallback<br/>Safe refusal, zero hallucination"]
     
     rewrite_query --> retrieve
     generate --> generation_route{Evidence sufficient?}
     generation_route -- "No; retries remain" --> rewrite_query
-    generation_route -- "Yes" --> grounding[Node: check_grounding\nSelf-RAG evidence verification]
+    generation_route -- "Yes" --> grounding["Node: check_grounding<br/>Self-RAG evidence verification"]
     grounding -- "Unsupported; first failure" --> generate
     grounding -- "Supported" --> END([END])
     grounding -- "Still unsupported" --> fallback
@@ -137,17 +137,17 @@ sequenceDiagram
     participant API as FastAPI (/query)
     participant CP as AsyncSqliteSaver (checkpoints.db)
     participant Graph as LangGraph StateGraph
-    participant LLM as Gemini 2.5 Flash
+    participant LLM as Gemini 3.8 Flash
 
-    User->>API: POST /query {"question": "Can it have a default value?", "session_id": "thread-123"}
-    API->>CP: Load state for configurable.thread_id="thread-123"
-    CP-->>API: GraphState with chat_history=[{"role": "user", "content": "How do I declare path parameters?"}, ...]
-    API->>Graph: graph.ainvoke(input, config={"configurable": {"thread_id": "thread-123"}})
+    User->>API: POST /query (question + session_id)
+    API->>CP: Load state for configurable.thread_id
+    CP-->>API: GraphState with prior conversation history
+    API->>Graph: graph.ainvoke(input, thread_id config)
     Graph->>LLM: analyze_query(question + chat_history)
-    LLM-->>Graph: Coreference resolved: "Can a FastAPI path parameter have a default value?"
+    LLM-->>Graph: Coreference resolved search query
     Graph->>Graph: retrieve -> grade -> generate -> check_grounding
-    Graph->>CP: Commit new checkpoint + append user/assistant turns
-    Graph-->>API: Return answer, citations, session_id="thread-123"
+    Graph->>CP: Commit new checkpoint + append conversation turns
+    Graph-->>API: Return answer, citations, session_id
     API-->>User: Synthesized answer with session continuity
 ```
 
@@ -189,41 +189,68 @@ Document chunking in [`backend/app/services/ingestion.py`](backend/app/services/
 
 ```
 expreess-assignment/
-├── AGENTS.md                  # Machine-targeted guidelines & architectural invariants
-├── pyproject.toml             # uv / pip dependency definitions
+├── .github/
+│   └── workflows/
+│       └── deploy.yml         # CI/CD pipeline (Test, Build & Push to GHCR, Deploy to K8s)
+├── k8s/                       # Production Kubernetes manifests
+│   ├── configmap.yaml         # Environment configurations & collection names
+│   ├── deployment.yaml        # Rolling deployment with health/readiness probes
+│   ├── ingress.yaml           # SSL ingress routing for express-rag.nstsdc.org
+│   └── service.yaml           # Cluster internal service definition
+├── Dockerfile                 # Multi-stage production container build
+├── pyproject.toml             # Python 3.12 dependencies managed with uv
 ├── uv.lock                    # Deterministic locked dependency graph
+├── AGENTS.md                  # Machine-targeted guidelines & architectural invariants
 ├── app/
 │   └── main.py                # Root FastAPI application entrypoint re-export
-├── frontend/
-│   └── app.py                 # Interactive Streamlit dashboard
+├── frontend/                  # Streamlit Community Cloud interactive UI
+│   ├── app.py                 # Multi-tab Streamlit dashboard application
+│   ├── components/            # Modular dashboard UI tabs
+│   │   ├── qa_tab.py          # Chat interface with citations & feedback
+│   │   ├── corpus_tab.py      # Indexed corpus document catalog
+│   │   ├── ingest_tab.py      # Document upload and indexing tab
+│   │   ├── workflow_tab.py    # LangGraph visual state diagram
+│   │   └── header.py          # Header and real-time status badges
+│   ├── styles/
+│   │   └── theme.py           # Custom modern CSS typography & cards
+│   ├── utils/
+│   │   ├── api.py             # HTTP client for FastAPI backend endpoints
+│   │   ├── helpers.py         # Formatting and session utilities
+│   │   └── icons.py           # SVG iconography
+│   └── assets/
+│       └── logo.svg           # Application logo
 ├── backend/
 │   ├── main.py                # Backend Uvicorn runner
 │   ├── app/
-│   │   ├── main.py            # FastAPI factory & lifespan management
+│   │   ├── main.py            # FastAPI factory, lifespan & checkpointer startup
 │   │   ├── api/               # REST routers (/query, /ingest, /documents, /feedback, /health)
-│   │   ├── core/              # Configuration (Pydantic Settings) & LLM prompts
-│   │   ├── graph/             # LangGraph state machine, nodes, conditional edges
-│   │   ├── schemas/           # Pydantic v2 request/response schemas
-│   │   └── services/          # Abstracted LLM, vector store, embedding, and DB services
+│   │   ├── core/              # Settings (pydantic-settings) & LLM prompt templates
+│   │   ├── graph/             # LangGraph state machine, nodes, conditional edges, state schema
+│   │   ├── schemas/           # Pydantic v2 validation models
+│   │   └── services/          # Abstracted LLM, vector store, embedding, database services
 │   ├── data/
+│   │   ├── app.db             # SQLite metadata registry of indexed documents
+│   │   ├── checkpoints.db     # Persistent SQLite conversation memory checkpoints
+│   │   ├── chroma/            # Pre-indexed ChromaDB vector embeddings (Gemini 2)
 │   │   ├── corpus/            # Curated FastAPI markdown documentation
-│   │   └── corpus_manifest.json
+│   │   └── corpus_manifest.json # SHA-256 integrity manifest
 │   ├── evaluation/
-│   │   ├── questions.json     # 12 labeled benchmark questions
-│   │   ├── run_eval.py        # Automated evaluation benchmark harness
-│   │   ├── golden_cases.json  # 14 source- and answer-labeled cases
+│   │   ├── golden_cases.json  # 14 source- and answer-labeled benchmark cases
 │   │   ├── golden_cases.xlsx  # Human-reviewable benchmark workbook
-│   │   ├── run_golden_eval.py # Live graph + retrieval evaluation
-│   │   └── run_api_eval.py    # FastAPI contract + golden API evaluation
+│   │   ├── run_golden_eval.py # Live LangGraph + retrieval evaluation harness
+│   │   ├── run_api_eval.py    # End-to-end FastAPI endpoint contract test
+│   │   ├── questions.json     # 12 labeled mock benchmark questions
+│   │   ├── run_eval.py        # Offline routing smoke test
 │   │   └── evaluation_results.json
 │   ├── scripts/
+│   │   ├── ingest.py          # Corpus indexing CLI tool
 │   │   ├── fetch_corpus.py    # Official docs scraper & manifest generator
-│   │   ├── ingest.py          # CLI indexing tool
-│   │   └── debug_query.py     # Standalone LangGraph pipeline CLI debugger
+│   │   └── debug_query.py     # Standalone LangGraph CLI interactive debugger
 │   └── tests/
-│       ├── conftest.py        # Offline fixtures & mock services
-│       ├── unit/              # Graph transitions, ingestion, and chunking tests
-│       └── integration/       # Full FastAPI HTTP endpoint tests
+│       ├── conftest.py        # Mock LLM fixtures & test configuration
+│       ├── fixtures/          # Test documents and inputs
+│       ├── unit/              # 32 unit tests (graph, embeddings, ingestion, LLM)
+│       └── integration/       # 6 integration tests (FastAPI API endpoints & memory)
 ```
 
 ---
