@@ -4,7 +4,13 @@ import pytest
 from backend.app.graph.builder import build_rag_graph
 from backend.app.graph.nodes import route_after_grading
 from backend.app.graph.state import create_initial_state
-from backend.app.services.llm import LLMTimeoutError, LLMUpstreamError, MockLLMService
+from backend.app.services.llm import (
+    GenerationOutput,
+    GradeOutput,
+    LLMTimeoutError,
+    LLMUpstreamError,
+    MockLLMService,
+)
 
 
 class FakeWebSearch:
@@ -17,13 +23,28 @@ class FakeWebSearch:
         return self.results[:max_results]
 
 
+class MismatchedGradeIdLLM(MockLLMService):
+    async def grade_chunk(self, question: str, chunk_id: str, chunk_text: str) -> GradeOutput:
+        del question, chunk_id, chunk_text
+        return GradeOutput(
+            chunk_id="model-returned-the-wrong-id", relevant=True, reason="Relevant content."
+        )
+
+
 @pytest.mark.asyncio
 async def test_relevant_chunks_route_to_generation(mock_embeddings, mock_vector_store):
     # Setup 1 stored chunk
     mock_vector_store.add_chunks(
         chunk_ids=["chunk_01"],
         documents=["FastAPI path parameters allow URL pattern matching."],
-        metadatas=[{"chunk_id": "chunk_01", "title": "Path Params", "section": "Basics", "source": "path.md"}],
+        metadatas=[
+            {
+                "chunk_id": "chunk_01",
+                "title": "Path Params",
+                "section": "Basics",
+                "source": "path.md",
+            }
+        ],
         embeddings=[mock_embeddings.embed_query("query")],
     )
 
@@ -41,12 +62,114 @@ async def test_relevant_chunks_route_to_generation(mock_embeddings, mock_vector_
 
 
 @pytest.mark.asyncio
-async def test_irrelevant_chunks_trigger_rewriting_until_exhausted(mock_embeddings, mock_vector_store):
+async def test_inline_citations_are_resolved_even_if_structured_list_is_partial(
+    mock_embeddings, mock_vector_store
+):
+    texts = ["Path parameters come from the URL.", "Query parameters come from the query string."]
+    mock_vector_store.add_chunks(
+        chunk_ids=["path", "query"],
+        documents=texts,
+        metadatas=[
+            {"chunk_id": key, "title": key, "section": "Basics", "source": f"{key}.md"}
+            for key in ("path", "query")
+        ],
+        embeddings=[mock_embeddings.embed_query(text) for text in texts],
+    )
+
+    class PartialCitationLLM(MockLLMService):
+        async def generate_answer(self, question, labeled_context):
+            del question, labeled_context
+            return GenerationOutput(
+                answer="Path values are read from the URL [S1]. Query values are read from the query string [S2].",
+                cited_labels=["S1"],
+            )
+
+    graph = build_rag_graph(PartialCitationLLM(), mock_embeddings, mock_vector_store)
+    result = await graph.ainvoke(create_initial_state("Explain path and query parameters"))
+
+    assert result["status"] == "answered"
+    assert {citation["label"] for citation in result["citations"]} == {"S1", "S2"}
+
+
+@pytest.mark.asyncio
+async def test_grader_id_mismatch_does_not_discard_relevant_chunk(
+    mock_embeddings, mock_vector_store
+):
+    mock_vector_store.add_chunks(
+        chunk_ids=["stable_chunk_id"],
+        documents=["FastAPI path parameters are declared in route paths."],
+        metadatas=[
+            {
+                "chunk_id": "stable_chunk_id",
+                "title": "Path Params",
+                "section": "Basics",
+                "source": "path.md",
+            }
+        ],
+        embeddings=[mock_embeddings.embed_query("path params")],
+    )
+    graph = build_rag_graph(
+        MismatchedGradeIdLLM(generation_labels=["S1"]), mock_embeddings, mock_vector_store
+    )
+
+    result = await graph.ainvoke(create_initial_state("How do path params work?"))
+
+    assert result["status"] == "answered"
+    assert result["relevant_chunks"][0]["chunk_id"] == "stable_chunk_id"
+
+
+@pytest.mark.asyncio
+async def test_hybrid_retrieval_finds_each_part_of_compound_question(
+    mock_embeddings, mock_vector_store
+):
+    source_docs = [
+        ("path", "FastAPI path parameter item_id is declared in the route path."),
+        ("query", "FastAPI query parameter q is declared as a function parameter."),
+        ("body", "Pydantic BaseModel defines the JSON request body."),
+    ]
+    mock_vector_store.add_chunks(
+        chunk_ids=[item[0] for item in source_docs],
+        documents=[item[1] for item in source_docs],
+        metadatas=[
+            {
+                "chunk_id": cid,
+                "title": cid,
+                "section": "Guide",
+                "source": f"fastapi-{cid}.md",
+                "document_id": f"fastapi-{cid}",
+            }
+            for cid, _ in source_docs
+        ],
+        embeddings=[mock_embeddings.embed_query(text) for _, text in source_docs],
+    )
+    graph = build_rag_graph(
+        MockLLMService(default_relevant=True, generation_labels=["S1", "S2", "S3"]),
+        mock_embeddings,
+        mock_vector_store,
+        top_k=3,
+    )
+
+    result = await graph.ainvoke(
+        create_initial_state(
+            "Can one endpoint combine a path parameter, a query parameter, and a Pydantic BaseModel request body?"
+        )
+    )
+
+    assert {chunk["chunk_id"] for chunk in result["retrieved_chunks"]} == {"path", "query", "body"}
+    assert result["status"] == "answered"
+
+
+@pytest.mark.asyncio
+async def test_irrelevant_chunks_trigger_rewriting_until_exhausted(
+    mock_embeddings, mock_vector_store
+):
     # Setup stored chunk that will be judged irrelevant
     mock_vector_store.add_chunks(
         chunk_ids=["chunk_irr"],
         documents=["Completely unrelated content about cooking recipes."],
-        metadatas=[{"chunk_id": "chunk_irr", "title": "Recipes", "section": "Food", "source": "recipes.md"}],
+        metadatas=[
+            {"chunk_id": "chunk_irr", "title": "Recipes", "section": "Food", "source": "recipes.md"}
+        ],
         embeddings=[mock_embeddings.embed_query("recipes")],
     )
 
@@ -67,16 +190,24 @@ async def test_irrelevant_chunks_trigger_rewriting_until_exhausted(mock_embeddin
 
 
 @pytest.mark.asyncio
-async def test_web_fallback_runs_after_corpus_retries_and_cites_url(mock_embeddings, mock_vector_store):
-    web = FakeWebSearch([{
-        "title": "FastAPI External Docs",
-        "url": "https://fastapi.tiangolo.com/tutorial/",
-        "content": "FastAPI supports dependency injection for shared logic.",
-    }])
+async def test_web_fallback_runs_after_corpus_retries_and_cites_url(
+    mock_embeddings, mock_vector_store
+):
+    web = FakeWebSearch(
+        [
+            {
+                "title": "FastAPI External Docs",
+                "url": "https://fastapi.tiangolo.com/tutorial/",
+                "content": "FastAPI supports dependency injection for shared logic.",
+            }
+        ]
+    )
     llm = MockLLMService(default_relevant=True, generation_labels=["S1"])
     graph = build_rag_graph(llm, mock_embeddings, mock_vector_store, web_search=web)
 
-    result = await graph.ainvoke(create_initial_state("How does dependency injection work?", max_retries=0))
+    result = await graph.ainvoke(
+        create_initial_state("How does dependency injection work?", max_retries=0)
+    )
 
     assert len(web.queries) == 1
     assert result["status"] == "answered"
@@ -86,7 +217,9 @@ async def test_web_fallback_runs_after_corpus_retries_and_cites_url(mock_embeddi
 
 @pytest.mark.asyncio
 async def test_web_fallback_disabled_fails_closed_without_loop(mock_embeddings, mock_vector_store):
-    graph = build_rag_graph(MockLLMService(default_relevant=False), mock_embeddings, mock_vector_store)
+    graph = build_rag_graph(
+        MockLLMService(default_relevant=False), mock_embeddings, mock_vector_store
+    )
 
     result = await graph.ainvoke(create_initial_state("Unknown topic", max_retries=0))
 
@@ -94,6 +227,34 @@ async def test_web_fallback_disabled_fails_closed_without_loop(mock_embeddings, 
     assert result["web_search_attempted"] is True
     assert result["web_fallback_used"] is False
     assert result["retrieval_attempts"] == 1
+
+
+@pytest.mark.asyncio
+async def test_retrieval_pass_preserves_relevant_evidence_from_previous_pass(
+    mock_embeddings, mock_vector_store
+):
+    graph = build_rag_graph(
+        MockLLMService(default_relevant=True, generation_labels=["S1"]),
+        mock_embeddings,
+        mock_vector_store,
+    )
+    state = create_initial_state("Combine details across documentation", max_retries=0)
+    state["relevant_chunks"] = [
+        {
+            "chunk_id": "earlier-evidence",
+            "text": "Previously graded useful context.",
+            "source": "first.md",
+            "title": "First source",
+            "section": "Overview",
+            "chunk_index": 0,
+            "distance": 0.0,
+        }
+    ]
+
+    result = await graph.ainvoke(state)
+
+    assert result["status"] == "answered"
+    assert result["citations"][0]["chunk_id"] == "earlier-evidence"
 
 
 @pytest.mark.asyncio
@@ -141,7 +302,9 @@ async def test_invalid_citation_label_triggers_safe_fallback(mock_embeddings, mo
     mock_vector_store.add_chunks(
         chunk_ids=["chunk_1"],
         documents=["FastAPI dependency injection system."],
-        metadatas=[{"chunk_id": "chunk_1", "title": "Deps", "section": "Intro", "source": "dep.md"}],
+        metadatas=[
+            {"chunk_id": "chunk_1", "title": "Deps", "section": "Intro", "source": "dep.md"}
+        ],
         embeddings=[mock_embeddings.embed_query("deps")],
     )
 
@@ -162,7 +325,9 @@ async def test_uncited_factual_answer_triggers_safe_fallback(mock_embeddings, mo
     mock_vector_store.add_chunks(
         chunk_ids=["chunk_1"],
         documents=["FastAPI request body guide."],
-        metadatas=[{"chunk_id": "chunk_1", "title": "Body", "section": "Intro", "source": "body.md"}],
+        metadatas=[
+            {"chunk_id": "chunk_1", "title": "Body", "section": "Intro", "source": "body.md"}
+        ],
         embeddings=[mock_embeddings.embed_query("body")],
     )
 
@@ -183,7 +348,9 @@ async def test_provider_timeout_is_treated_as_operational_error(mock_embeddings,
     mock_vector_store.add_chunks(
         chunk_ids=["chunk_1"],
         documents=["FastAPI request files guide."],
-        metadatas=[{"chunk_id": "chunk_1", "title": "Files", "section": "Intro", "source": "files.md"}],
+        metadatas=[
+            {"chunk_id": "chunk_1", "title": "Files", "section": "Intro", "source": "files.md"}
+        ],
         embeddings=[mock_embeddings.embed_query("files")],
     )
 
@@ -198,7 +365,9 @@ async def test_provider_timeout_is_treated_as_operational_error(mock_embeddings,
 
 
 @pytest.mark.asyncio
-async def test_grounding_failure_causes_one_regeneration_then_accepts(mock_embeddings, mock_vector_store):
+async def test_grounding_failure_causes_one_regeneration_then_accepts(
+    mock_embeddings, mock_vector_store
+):
     mock_vector_store.add_chunks(
         chunk_ids=["grounded_chunk"],
         documents=["FastAPI uses Depends to declare a dependency."],
@@ -235,7 +404,9 @@ async def test_persistently_ungrounded_answer_fails_closed(mock_embeddings, mock
 
 
 @pytest.mark.asyncio
-async def test_incomplete_generation_triggers_bounded_crag_retrieval(mock_embeddings, mock_vector_store):
+async def test_incomplete_generation_triggers_bounded_crag_retrieval(
+    mock_embeddings, mock_vector_store
+):
     mock_vector_store.add_chunks(
         chunk_ids=["incomplete_chunk"],
         documents=["FastAPI supports path parameters."],
@@ -246,7 +417,9 @@ async def test_incomplete_generation_triggers_bounded_crag_retrieval(mock_embedd
         MockLLMService(has_sufficient_context=False), mock_embeddings, mock_vector_store
     )
 
-    result = await graph.ainvoke(create_initial_state("Explain this multi-part question", max_retries=1))
+    result = await graph.ainvoke(
+        create_initial_state("Explain this multi-part question", max_retries=1)
+    )
 
     assert result["status"] == "insufficient_context"
     assert result["retry_count"] == 1
@@ -255,7 +428,9 @@ async def test_incomplete_generation_triggers_bounded_crag_retrieval(mock_embedd
 
 
 @pytest.mark.asyncio
-async def test_crag_retry_can_recover_after_first_incomplete_draft(mock_embeddings, mock_vector_store):
+async def test_crag_retry_can_recover_after_first_incomplete_draft(
+    mock_embeddings, mock_vector_store
+):
     from backend.app.services.llm import GenerationOutput
 
     class RecoveringLLM(MockLLMService):
@@ -290,29 +465,47 @@ async def test_crag_retry_can_recover_after_first_incomplete_draft(mock_embeddin
 
 @pytest.mark.asyncio
 async def test_query_decomposition_merges_distinct_document_evidence(mock_embeddings):
+    from langchain_core.documents import Document
+    from langchain_core.runnables import RunnableLambda
+
     class PerQueryVectorStore:
         def __init__(self):
             self.calls = 0
 
-        def search(self, query_embedding, top_k=5):
-            del query_embedding, top_k
-            self.calls += 1
-            chunk_id = f"aspect_{self.calls}"
-            return [{
-                "chunk_id": chunk_id,
-                "text": f"Evidence for aspect {self.calls}.",
-                "metadata": {"title": chunk_id, "section": "Overview", "source": f"{chunk_id}.md"},
-                "distance": 0.1,
-            }]
+        def as_retriever(self, embeddings, top_k=5):
+            del embeddings, top_k
+
+            def retrieve(_query):
+                self.calls += 1
+                chunk_id = f"aspect_{self.calls}"
+                return [
+                    Document(
+                        page_content=f"Evidence for aspect {self.calls}.",
+                        metadata={
+                            "chunk_id": chunk_id,
+                            "title": chunk_id,
+                            "section": "Overview",
+                            "source": f"{chunk_id}.md",
+                        },
+                    )
+                ]
+
+            return RunnableLambda(retrieve)
 
     vector_store = PerQueryVectorStore()
     llm = MockLLMService(retrieval_queries=["path parameter validation", "file upload handling"])
     graph = build_rag_graph(llm, mock_embeddings, vector_store, top_k=1)
 
-    result = await graph.ainvoke(create_initial_state("Compare path parameters and file upload handling"))
+    result = await graph.ainvoke(
+        create_initial_state("Compare path parameters and file upload handling")
+    )
 
     assert vector_store.calls == 3  # primary query and two focused searches
-    assert {chunk["chunk_id"] for chunk in result["retrieved_chunks"]} == {"aspect_1", "aspect_2", "aspect_3"}
+    assert {chunk["chunk_id"] for chunk in result["retrieved_chunks"]} == {
+        "aspect_1",
+        "aspect_2",
+        "aspect_3",
+    }
 
 
 def test_route_after_grading_logic():

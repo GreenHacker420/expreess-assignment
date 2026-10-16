@@ -66,6 +66,7 @@ async def test_ingest_and_query_success_flow(async_client: AsyncClient):
     assert q_data["answer"]
     assert q_data["citations"]
     assert q_data["grounding_verified"] is True
+    assert q_data["web_fallback_used"] is False
 
     # 4. Submit feedback for the query
     fb_res = await async_client.post(
