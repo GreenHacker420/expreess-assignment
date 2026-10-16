@@ -73,7 +73,9 @@ class RAGNodeFactory:
         attempts = state["retrieval_attempts"] + 1
         logger.info(
             "[query_id=%s] Node: retrieve (attempt %d) for query: '%s'",
-            state["query_id"], attempts, " | ".join(queries)
+            state["query_id"],
+            attempts,
+            " | ".join(queries),
         )
 
         # Focused query variants share the standard LangChain retriever interface.
@@ -83,37 +85,42 @@ class RAGNodeFactory:
                 chunk_id = document.metadata.get("chunk_id", "")
                 if not chunk_id:
                     continue
-                ranked.setdefault(chunk_id, {
-                    "chunk_id": chunk_id,
-                    "text": document.page_content,
-                    "metadata": document.metadata,
-                })
+                ranked.setdefault(
+                    chunk_id,
+                    {
+                        "chunk_id": chunk_id,
+                        "text": document.page_content,
+                        "metadata": document.metadata,
+                    },
+                )
         raw_results = list(ranked.values())
 
         retrieved_chunks = []
         for r in raw_results:
             meta = r.get("metadata", {})
-            retrieved_chunks.append({
-                "chunk_id": r.get("chunk_id", ""),
-                "text": r.get("text", ""),
-                "source": meta.get("source", ""),
-                "document_id": meta.get("document_id", ""),
-                "title": meta.get("title", ""),
-                "section": meta.get("section", ""),
-                "chunk_index": meta.get("chunk_index", 0),
-                "distance": r.get("distance", 0.0),
-            })
+            retrieved_chunks.append(
+                {
+                    "chunk_id": r.get("chunk_id", ""),
+                    "text": r.get("text", ""),
+                    "source": meta.get("source", ""),
+                    "document_id": meta.get("document_id", ""),
+                    "title": meta.get("title", ""),
+                    "section": meta.get("section", ""),
+                    "chunk_index": meta.get("chunk_index", 0),
+                    "distance": r.get("distance", 0.0),
+                }
+            )
 
         logger.info(
             "[query_id=%s] Retrieved %d chunks from vector store.",
-            state["query_id"], len(retrieved_chunks)
+            state["query_id"],
+            len(retrieved_chunks),
         )
 
         seen_history_ids = {item.get("chunk_id") for item in state.get("retrieval_history", [])}
         retrieval_history = list(state.get("retrieval_history", []))
         retrieval_history.extend(
-            chunk for chunk in retrieved_chunks
-            if chunk.get("chunk_id") not in seen_history_ids
+            chunk for chunk in retrieved_chunks if chunk.get("chunk_id") not in seen_history_ids
         )
         return {
             "retrieved_chunks": retrieved_chunks,
@@ -128,7 +135,8 @@ class RAGNodeFactory:
         chunks = state["retrieved_chunks"]
         logger.info(
             "[query_id=%s] Node: grade_documents evaluating %d chunks.",
-            state["query_id"], len(chunks)
+            state["query_id"],
+            len(chunks),
         )
 
         if not chunks:
@@ -152,7 +160,9 @@ class RAGNodeFactory:
                 if out.chunk_id != chunk["chunk_id"]:
                     logger.warning(
                         "[query_id=%s] Grader returned chunk_id=%s for requested chunk_id=%s; binding verdict to request.",
-                        state["query_id"], out.chunk_id, chunk["chunk_id"],
+                        state["query_id"],
+                        out.chunk_id,
+                        chunk["chunk_id"],
                     )
                 return GradeRecord(
                     chunk_id=chunk["chunk_id"],
@@ -161,9 +171,7 @@ class RAGNodeFactory:
                 )
 
         # Concurrently grade chunks up to semaphore limit
-        grade_results: List[GradeRecord] = await asyncio.gather(
-            *[_grade_single(c) for c in chunks]
-        )
+        grade_results: List[GradeRecord] = await asyncio.gather(*[_grade_single(c) for c in chunks])
 
         grades_dict = [g.model_dump() for g in grade_results]
         relevance_by_id = {g.chunk_id: g.relevant for g in grade_results}
@@ -171,14 +179,17 @@ class RAGNodeFactory:
         relevant_chunks = list(state.get("relevant_chunks", []))
         known_ids = {chunk.get("chunk_id") for chunk in relevant_chunks}
         relevant_chunks.extend(
-            chunk for chunk in chunks
+            chunk
+            for chunk in chunks
             if relevance_by_id.get(chunk["chunk_id"], False)
             and chunk.get("chunk_id") not in known_ids
         )
 
         logger.info(
             "[query_id=%s] Grading complete: %d/%d chunks judged relevant.",
-            state["query_id"], len(relevant_chunks), len(chunks)
+            state["query_id"],
+            len(relevant_chunks),
+            len(chunks),
         )
 
         return {
@@ -194,7 +205,9 @@ class RAGNodeFactory:
 
         logger.info(
             "[query_id=%s] Node: rewrite_query (retry_count %d/%d)",
-            state["query_id"], new_retry_count, state["max_retries"]
+            state["query_id"],
+            new_retry_count,
+            state["max_retries"],
         )
 
         rewritten = await self.llm.rewrite_query(orig_q, history)
@@ -210,8 +223,16 @@ class RAGNodeFactory:
     async def web_search_fallback(self, state: GraphState) -> Dict[str, Any]:
         """Search the public web once after indexed-document correction is exhausted."""
         if self.web_search is None:
-            logger.info("[query_id=%s] Web fallback disabled; returning corpus-only result.", state["query_id"])
-            return {"retrieved_chunks": [], "grades": [], "web_fallback_used": False, "web_search_attempted": True}
+            logger.info(
+                "[query_id=%s] Web fallback disabled; returning corpus-only result.",
+                state["query_id"],
+            )
+            return {
+                "retrieved_chunks": [],
+                "grades": [],
+                "web_fallback_used": False,
+                "web_search_attempted": True,
+            }
 
         question = state["original_question"]
         # Do not send credential-exfiltration or prompt-override requests to a
@@ -224,7 +245,12 @@ class RAGNodeFactory:
         )
         if unsafe:
             logger.info("[query_id=%s] Web fallback skipped for unsafe query.", state["query_id"])
-            return {"retrieved_chunks": [], "grades": [], "web_fallback_used": False, "web_search_attempted": True}
+            return {
+                "retrieved_chunks": [],
+                "grades": [],
+                "web_fallback_used": False,
+                "web_search_attempted": True,
+            }
 
         query = state.get("retrieval_query") or question
         try:
@@ -233,12 +259,13 @@ class RAGNodeFactory:
             # Search is optional; provider failures should not break corpus RAG.
             logger.warning(
                 "[query_id=%s] Web search failed (%s); using safe fallback.",
-                state["query_id"], type(exc).__name__,
+                state["query_id"],
+                type(exc).__name__,
             )
             results = []
 
         chunks = []
-        for result in results[:self.web_search_max_results]:
+        for result in results[: self.web_search_max_results]:
             url = str(result.get("url", "")).strip()
             parsed = urlparse(url)
             title = str(result.get("title", "")).strip()
@@ -246,18 +273,22 @@ class RAGNodeFactory:
             if parsed.scheme not in {"http", "https"} or not parsed.netloc or not content:
                 continue
             digest = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
-            chunks.append({
-                "chunk_id": f"web_{digest}",
-                "text": content[:8000],
-                "source": url,
-                "title": title or parsed.netloc,
-                "section": "Web search result",
-                "chunk_index": 0,
-                "distance": 0.0,
-                "source_type": "web",
-            })
+            chunks.append(
+                {
+                    "chunk_id": f"web_{digest}",
+                    "text": content[:8000],
+                    "source": url,
+                    "title": title or parsed.netloc,
+                    "section": "Web search result",
+                    "chunk_index": 0,
+                    "distance": 0.0,
+                    "source_type": "web",
+                }
+            )
 
-        logger.info("[query_id=%s] Web fallback returned %d usable results.", state["query_id"], len(chunks))
+        logger.info(
+            "[query_id=%s] Web fallback returned %d usable results.", state["query_id"], len(chunks)
+        )
         return {
             "retrieved_chunks": chunks,
             "grades": [],
@@ -271,7 +302,8 @@ class RAGNodeFactory:
         rel_chunks = state["relevant_chunks"]
         logger.info(
             "[query_id=%s] Node: generate using %d relevant chunks.",
-            state["query_id"], len(rel_chunks)
+            state["query_id"],
+            len(rel_chunks),
         )
 
         if not rel_chunks:
@@ -306,11 +338,13 @@ class RAGNodeFactory:
             return {"generation_needs_retrieval": True}
 
         # Invariant: Reject uncited factual answers
-        cited_labels = [lbl.strip().strip("[]") for lbl in gen_output.cited_labels]
-        # Also scan answer for cited labels in text if list was omitted
+        # The inline answer is authoritative: the structured list can omit a label
+        # that the model actually used, which would otherwise drop its source.
+        cited_labels = list(dict.fromkeys(re.findall(r"\[(S\d+)\]", gen_output.answer)))
         if not cited_labels:
-            found_in_text = re.findall(r"\[(S\d+)\]", gen_output.answer)
-            cited_labels = list(dict.fromkeys(found_in_text))
+            cited_labels = list(
+                dict.fromkeys(lbl.strip().strip("[]") for lbl in gen_output.cited_labels)
+            )
 
         if not cited_labels:
             logger.warning("[query_id=%s] Rejecting uncited factual answer.", state["query_id"])
@@ -320,16 +354,22 @@ class RAGNodeFactory:
         citations: List[Dict[str, Any]] = []
         for lbl in cited_labels:
             if lbl not in label_map:
-                logger.warning("[query_id=%s] Unknown citation label '%s'. Triggering fallback.", state["query_id"], lbl)
+                logger.warning(
+                    "[query_id=%s] Unknown citation label '%s'. Triggering fallback.",
+                    state["query_id"],
+                    lbl,
+                )
                 return await self.fallback(state)
             c = label_map[lbl]
-            citations.append({
-                "label": lbl,
-                "chunk_id": c["chunk_id"],
-                "title": c["title"],
-                "section": c["section"],
-                "source": c["source"],
-            })
+            citations.append(
+                {
+                    "label": lbl,
+                    "chunk_id": c["chunk_id"],
+                    "title": c["title"],
+                    "section": c["section"],
+                    "source": c["source"],
+                }
+            )
 
         return {
             "answer": gen_output.answer.strip(),

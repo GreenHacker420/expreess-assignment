@@ -28,7 +28,11 @@ class QueryAnalysisOutput(BaseModel):
     )
     retrieval_queries: List[str] = Field(
         default_factory=list,
-        description="At most three focused complementary searches for distinct parts of a multi-part question",
+        description=(
+            "For a multi-part question, return a separate focused query for each independent "
+            "fact required, up to three; do not combine those facts into one search. Return "
+            "an empty list only for a single-topic question."
+        ),
     )
 
 

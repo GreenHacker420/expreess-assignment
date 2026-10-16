@@ -204,6 +204,8 @@ LLM_PROVIDER="gemini"
 GEMINI_API_KEY="your_gemini_api_key_here"
 GEMINI_MODEL="gemini-3.8-flash"
 GEMINI_FAST_MODEL="gemini-3.8-flash"
+GEMINI_EMBEDDING_MODEL="gemini-embedding-2"
+GEMINI_EMBEDDING_DIMENSIONS=768
 
 # Optional Groq: set LLM_PROVIDER="groq" and configure GROQ_API_KEY / model names
 
@@ -226,9 +228,9 @@ env -u GEMINI_API_KEY -u GOOGLE_API_KEY uv run uvicorn backend.main:app --host 1
 ### 3. Ingest Documentation Corpus
 Index the approved FastAPI corpus into ChromaDB and SQLite:
 ```bash
-uv run python backend/scripts/ingest.py
+uv run python backend/scripts/ingest.py --env-file backend/.env --reset
 ```
-*Expected output: 5 documents, 101 chunks indexed.*
+This explicitly reads the Gemini key from `backend/.env` and builds the versioned `fastapi_docs_gemini2_qa_v1` collection. Gemini Embedding 2 uses different query and document prefixes, so the old embeddings cannot be reused. The reset is limited to the selected Chroma collection and the SQLite document registry; the source corpus remains in `backend/data/corpus/`.
 
 ### 4. Start FastAPI Backend Server
 ```bash
@@ -374,7 +376,7 @@ uv run pytest backend/tests/ -v
 |---|---|---|---|
 | **Orchestration** | Cyclical LangGraph (`StateGraph`) | Linear LangChain LCEL chain | LangGraph natively models cyclical self-correction, retry counters, and branching logic with explicit typed state. |
 | **Vector Database** | ChromaDB with local persistent storage | Pinecone / Qdrant Cloud | Zero cloud dependency for local evaluation; embeds easily in local development while maintaining metadata filtering. |
-| **Embeddings** | Local `sentence-transformers/all-MiniLM-L6-v2` | OpenAI `text-embedding-3-small` | Fast, deterministic, free, and runs offline without API latency or rate limit quotas. |
+| **Embeddings** | Gemini Embedding 2, 768 dimensions, asymmetric query/document formatting | Local sentence-transformers | Strong technical-document retrieval quality; requires Gemini API access and reindexing when the embedding model or formatting changes. |
 | **Chunking** | Heading-aware AST Markdown parser | Fixed-size character window | Prevents breaking code snippets mid-block and attaches meaningful section headers to vector metadata. |
 | **Hallucination Prevention** | Fallback disclaimer on retry exhaustion | Unconstrained generation | Technical users prefer a clear "I do not have documentation on this topic" over fabricated APIs or incorrect syntax. |
 | **Import Discipline** | All imports strictly at module top-level | Inline / deferred imports | Prevents runtime `ImportError` inside node loops, simplifies static analysis and dependency tracing. |

@@ -40,6 +40,7 @@ async def lifespan(app: FastAPI):
         app.state.embeddings = GeminiEmbeddingsService(
             api_key=settings.gemini_api_key,
             model_name=settings.gemini_embedding_model,
+            output_dimensionality=settings.gemini_embedding_dimensions,
         )
 
     if not hasattr(app.state, "vector_store"):

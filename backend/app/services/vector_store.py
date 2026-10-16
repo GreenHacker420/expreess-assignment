@@ -33,7 +33,11 @@ class VectorStoreService(Protocol):
 class ChromaVectorStoreService:
     """Persistent Chroma store exposed through LangChain's Chroma integration."""
 
-    def __init__(self, persist_dir: str = "data/chroma", collection_name: str = "fastapi_docs"):
+    def __init__(
+        self,
+        persist_dir: str = "data/chroma",
+        collection_name: str = "fastapi_docs_gemini2_qa_v1",
+    ):
         self.persist_dir = persist_dir
         self.collection_name = collection_name
         Path(persist_dir).mkdir(parents=True, exist_ok=True)

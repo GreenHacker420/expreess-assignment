@@ -3,7 +3,9 @@
 import hashlib
 import logging
 import os
-from typing import List, Protocol, runtime_checkable
+import re
+from typing import Protocol, runtime_checkable
+
 from langchain_core.embeddings import Embeddings
 
 try:
@@ -20,11 +22,11 @@ logger = logging.getLogger("embeddings")
 class EmbeddingsService(Protocol):
     """Protocol for embedding and tokenization operations."""
 
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
         """Embed a list of text documents into vector representations."""
         ...
 
-    def embed_query(self, text: str) -> List[float]:
+    def embed_query(self, text: str) -> list[float]:
         """Embed a single query into a vector representation."""
         ...
 
@@ -51,35 +53,58 @@ class GeminiEmbeddingsService:
         self.output_dimensionality = output_dimensionality
         self._client = genai.Client(api_key=self.api_key) if self.api_key else None
 
-    def _embed_single_with_retry(self, text: str, max_retries: int = 5) -> List[float]:
+    def _embed_single_with_retry(
+        self,
+        text: str,
+        max_retries: int = 5,
+        task_type: str | None = None,
+    ) -> list[float]:
         import time
 
         delay = 2.0
         for attempt in range(max_retries):
             try:
+                embed_config = {"output_dimensionality": self.output_dimensionality}
+                if task_type:
+                    embed_config["task_type"] = task_type
                 res = self._client.models.embed_content(
                     model=self.model_name,
                     contents=text,
-                    config=types.EmbedContentConfig(
-                        output_dimensionality=self.output_dimensionality
-                    )
-                    if types
-                    else None,
+                    config=types.EmbedContentConfig(**embed_config) if types else None,
                 )
                 return res.embeddings[0].values
             except Exception as e:
                 err_str = str(e)
-                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                    if attempt < max_retries - 1:
-                        logger.warning(
-                            "Gemini embedding rate-limited (429). Retrying in %.1fs...", delay
-                        )
-                        time.sleep(delay)
-                        delay *= 2
-                        continue
+                if (
+                    "429" in err_str or "RESOURCE_EXHAUSTED" in err_str
+                ) and attempt < max_retries - 1:
+                    logger.warning(
+                        "Gemini embedding rate-limited (429). Retrying in %.1fs...", delay
+                    )
+                    time.sleep(delay)
+                    delay *= 2
+                    continue
                 raise
 
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    @staticmethod
+    def _format_document_for_embedding(text: str) -> str:
+        """Apply Gemini Embedding 2's documented title/text document format."""
+        match = re.match(r"^\[(?P<title>.+?)\s*>\s*(?P<section>.+?)\]\s*\n\s*", text)
+        if match:
+            title = match.group("title").strip()
+            section = match.group("section").strip()
+            body = text[match.end() :].strip()
+            text = f"section: {section}\n{body}"
+        else:
+            title = "none"
+        return f"title: {title} | text: {text}"
+
+    @staticmethod
+    def _format_query_for_embedding(text: str) -> str:
+        """Apply Gemini Embedding 2's documented asymmetric retrieval query format."""
+        return f"task: question answering | query: {text}"
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
         import time
 
         if not texts:
@@ -89,15 +114,20 @@ class GeminiEmbeddingsService:
 
         results = []
         for text in texts:
-            emb = self._embed_single_with_retry(text)
+            if "embedding-2" in self.model_name:
+                emb = self._embed_single_with_retry(self._format_document_for_embedding(text))
+            else:
+                emb = self._embed_single_with_retry(text, task_type="RETRIEVAL_DOCUMENT")
             results.append(emb)
             time.sleep(0.3)  # Gentle spacing between requests to stay well within rate limits
         return results
 
-    def embed_query(self, text: str) -> List[float]:
+    def embed_query(self, text: str) -> list[float]:
         if not self._client:
             raise ValueError("GEMINI_API_KEY is required for GeminiEmbeddingsService.")
-        return self._embed_single_with_retry(text)
+        if "embedding-2" in self.model_name:
+            return self._embed_single_with_retry(self._format_query_for_embedding(text))
+        return self._embed_single_with_retry(text, task_type="RETRIEVAL_QUERY")
 
     def count_tokens(self, text: str) -> int:
         return len(text.split())
@@ -109,7 +139,7 @@ class MockEmbeddingsService:
     def __init__(self, dimension: int = 768):
         self.dimension = dimension
 
-    def _hash_to_vector(self, text: str) -> List[float]:
+    def _hash_to_vector(self, text: str) -> list[float]:
         h = hashlib.md5(text.encode("utf-8")).digest()
         vec = []
         for i in range(self.dimension):
@@ -118,10 +148,10 @@ class MockEmbeddingsService:
         norm = (sum(x * x for x in vec)) ** 0.5 or 1.0
         return [x / norm for x in vec]
 
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
         return [self._hash_to_vector(t) for t in texts]
 
-    def embed_query(self, text: str) -> List[float]:
+    def embed_query(self, text: str) -> list[float]:
         return self._hash_to_vector(text)
 
     def count_tokens(self, text: str) -> int:
@@ -134,8 +164,8 @@ class LangChainEmbeddingsAdapter(Embeddings):
     def __init__(self, service: EmbeddingsService):
         self.service = service
 
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
         return self.service.embed_documents(texts)
 
-    def embed_query(self, text: str) -> List[float]:
+    def embed_query(self, text: str) -> list[float]:
         return self.service.embed_query(text)
