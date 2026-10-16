@@ -6,7 +6,7 @@
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-0.6+-purple.svg)](https://www.trychroma.com)
 [![Streamlit Cloud](https://img.shields.io/badge/Streamlit%20Cloud-Live%20App-FF4B4B.svg)](https://expreess-assignment.streamlit.app)
 [![API Production](https://img.shields.io/badge/FastAPI-Production%20Cluster-009688.svg)](https://express-rag.nstsdc.org)
-[![Tests Passing](https://img.shields.io/badge/tests-38%20passed-brightgreen.svg)]()
+[![Tests Passing](https://img.shields.io/badge/tests-44%20passed-brightgreen.svg)]()
 
 > **Express Analytics AI/ML Engineer Intern Take-Home Assignment**  
 > A production-grade, self-corrective Retrieval-Augmented Generation (RAG) assistant for technical documentation, orchestrated with **LangGraph** cyclical state machines, indexed with **ChromaDB** using **Gemini Embedding 2**, backed by persistent **SQLite checkpointer conversational memory**, and deployed to production on **Kubernetes** with a live **Streamlit Cloud** frontend.
@@ -53,7 +53,7 @@ flowchart TD
     
     route_decision -- "Relevant Chunks Found" --> generate["Node: generate<br/>Synthesize answer with inline source citations"]
     route_decision -- "No Relevant Chunks & retries < MAX" --> rewrite_query["Node: rewrite_query<br/>Refine search phrasing & retry_count++"]
-    route_decision -- "Exhausted & web not tried" --> web_search["Optional Tavily web search"]
+    route_decision -- "Exhausted & web not tried" --> web_search["Optional Web Search<br/>(Gemini Grounding / Exa / Tavily)"]
     web_search --> grade_documents
     route_decision -- "Exhausted & web tried/no service" --> fallback["Node: fallback<br/>Safe refusal, zero hallucination"]
     
@@ -76,7 +76,7 @@ flowchart TD
 | **`generate`** | Synthesizes a factual, grounded response citing retrieved source chunks explicitly using bracket labels (`[S1]`, `[S2]`). | `answer`, `citations`, `status="answered"` |
 | **`check_grounding`** | Uses a separate structured LLM judgment to check the answer claims against the cited context; permits one constrained regeneration. | `grounding_result`, bounded regeneration or safe fallback |
 | **`rewrite_query`** | Triggers when zero chunks pass relevance grading. Expands phrasing and loops back to `retrieve`. | `retry_count += 1`, `query_history` |
-| **`web_search`** | Optional single Tavily search after indexed-corpus retries; returned snippets are graded by the same relevance node and cited by URL. | `web_search_attempted`, `web_fallback_used` |
+| **`web_search`** | Optional pluggable web search (`gemini` Google Search grounding, `exa`, or `tavily`) after indexed-corpus retries; returned snippets are graded by the same relevance node and cited by URL. | `web_search_attempted`, `web_fallback_used` |
 | **CRAG correction** | Rewrites and retrieves again when grading rejects all chunks or generation identifies missing evidence, subject to `MAX_RETRIES`. | Bounded retrieval attempts |
 | **`fallback`** | Reached when retrieval retries are exhausted or answer grounding still fails. Returns safe refusal. | `answer`, `status="insufficient_context"` |
 
@@ -119,7 +119,7 @@ class GraphState(TypedDict):
 - Set `LLM_PROVIDER=groq` to use the optional Groq implementation and its `FAST_LLM_MODEL` / `LLM_MODEL` settings. Gemini is the default and reads `GEMINI_API_KEY` (or `GOOGLE_API_KEY`).
 
 ### 3. Bounded Loops (Cycle & Token Exhaustion Protection)
-Cyclic workflows can lead to runaway API bills if retrieval wanders. Retrieval correction is bounded by `MAX_RETRIES = 2` (at most 3 retrieval attempts). Optional web search is disabled by default and runs at most once after corpus retries; it requires both `WEB_SEARCH_ENABLED=true` and `TAVILY_API_KEY`. Web results pass relevance grading and answer-grounding checks, with citations pointing to their source URLs. Self-RAG permits one regeneration after an unsupported draft; a second failed check routes to `fallback -> END`.
+Cyclic workflows can lead to runaway API bills if retrieval wanders. Retrieval correction is bounded by `MAX_RETRIES = 2` (at most 3 retrieval attempts). Optional web search fallback is triggered only after corpus retries are exhausted (`WEB_SEARCH_ENABLED=true`), supporting pluggable backends: `gemini` (zero-extra-credential Google Search grounding using the existing `GEMINI_API_KEY`), `exa` (`EXA_API_KEY`), or `tavily` (`TAVILY_API_KEY`). Web results pass relevance grading and answer-grounding checks, with citations pointing to their source URLs. Self-RAG permits one regeneration after an unsupported draft; a second failed check routes to `fallback -> END`.
 
 ### 4. Deep Observability & Resilient Backoff
 - Integrated with **LangSmith** via standard environment flags (`LANGSMITH_TRACING=true`).
@@ -288,9 +288,11 @@ GEMINI_EMBEDDING_DIMENSIONS=768
 
 # Optional Groq: set LLM_PROVIDER="groq" and configure GROQ_API_KEY / model names
 
-# Optional Tavily public-web fallback (disabled by default)
-WEB_SEARCH_ENABLED=false
-TAVILY_API_KEY=""
+# Pluggable Web Search Fallback (triggered only when corpus retries are exhausted)
+WEB_SEARCH_ENABLED=true
+WEB_SEARCH_PROVIDER="gemini"    # Options: "gemini" (native Google Search grounding), "exa", "tavily"
+EXA_API_KEY=""                  # Required if WEB_SEARCH_PROVIDER="exa"
+TAVILY_API_KEY=""               # Required if WEB_SEARCH_PROVIDER="tavily"
 WEB_SEARCH_MAX_RESULTS=5
 
 # Optional: LangSmith Tracing
@@ -491,11 +493,11 @@ uv run python backend/evaluation/run_eval.py --live
 
 ## 🧪 Automated Test Suite
 
-The automated test suite contains **38 comprehensive tests** under [`backend/tests/`](backend/tests/); run it with `uv run pytest backend/tests/ -v`.
-- **Unit Tests (`test_graph.py`, `test_embeddings.py`, `test_llm_provider.py`):** Verified document routing, relevance filtering, query rewriting loops, retry exhaustion, inline citation integrity, Self-RAG grounding verification, SQLite checkpointer state persistence, and Gemini Embedding 2 asymmetric task formatting.
+The automated test suite contains **44 comprehensive tests** under [`backend/tests/`](backend/tests/); run it with `uv run pytest backend/tests/ -v`.
+- **Unit Tests (`test_graph.py`, `test_embeddings.py`, `test_llm_provider.py`, `test_web_search.py`):** Verified document routing, relevance filtering, query rewriting loops, retry exhaustion, inline citation integrity, Self-RAG grounding verification, SQLite checkpointer state persistence, Gemini Embedding 2 asymmetric task formatting, and pluggable web search providers (Gemini Google Search Grounding, Exa, Tavily, fail-closed handling).
 - **Ingestion Tests (`test_ingestion.py`):** Heading-aware chunking, code-block boundaries, SHA-256 deduplication, idempotent upserts, and stale chunk deletion.
 - **Integration Tests (`test_api.py`):** Full FastAPI test client covering multi-turn conversation memory continuity, `/query`, `/ingest` (multipart & JSON URL), `/documents`, `/feedback`, `/health`, and error codes (400, 404, 415, 422, 503).
-- **100% Offline by Design:** Tests run completely offline in under **0.40 seconds** using dependency injection and mock fixtures without requiring external API keys or network access.
+- **100% Offline by Design:** Tests run completely offline in under **0.80 seconds** using dependency injection and mock fixtures without requiring external API keys or network access.
 
 ```bash
 uv run pytest backend/tests/ -v

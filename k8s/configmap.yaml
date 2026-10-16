@@ -17,4 +17,6 @@ data:
   CHECKPOINT_DB_PATH: "backend/data/checkpoints.db"
   MAX_RETRIES: "2"
   TOP_K: "5"
+  WEB_SEARCH_ENABLED: "true"
+  WEB_SEARCH_PROVIDER: "gemini"
   LANGSMITH_TRACING: "false"

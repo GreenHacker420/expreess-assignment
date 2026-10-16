@@ -18,7 +18,7 @@ from backend.app.services.database import SQLiteDatabaseService
 from backend.app.services.embeddings import GeminiEmbeddingsService
 from backend.app.services.ingestion import IngestionService
 from backend.app.services.llm import create_llm_service
-from backend.app.services.web_search import TavilyWebSearchService
+from backend.app.services.web_search import create_web_search_service
 from backend.app.services.vector_store import ChromaVectorStoreService
 
 logger = logging.getLogger("backend_app")
@@ -63,11 +63,7 @@ async def lifespan(app: FastAPI):
         app.state.llm = create_llm_service(settings)
 
     if not hasattr(app.state, "web_search"):
-        app.state.web_search = (
-            TavilyWebSearchService(settings.tavily_api_key)
-            if settings.web_search_enabled and settings.tavily_api_key
-            else None
-        )
+        app.state.web_search = create_web_search_service(settings)
 
     if not hasattr(app.state, "checkpointer"):
         try:

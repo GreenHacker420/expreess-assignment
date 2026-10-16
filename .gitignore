@@ -56,6 +56,9 @@ test_uploads/
 tmp/
 temp/
 backend/evaluation/runs/
+backend/evaluation/golden_cases.*
+backend/evaluation/run_api_eval.py
+backend/evaluation/run_golden_eval.py
 
 # Testing & Linting
 .pytest_cache/

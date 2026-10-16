@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,8 +21,12 @@ class Settings(BaseSettings):
     fast_llm_model: str = Field(default="openai/gpt-oss-120b", alias="FAST_LLM_MODEL")
     llm_temperature: float = Field(default=0.0, alias="LLM_TEMPERATURE")
     llm_timeout_seconds: float = Field(default=30.0, alias="LLM_TIMEOUT_SECONDS")
+    web_search_enabled: bool = Field(default=True, alias="WEB_SEARCH_ENABLED")
+    web_search_provider: Literal["gemini", "exa", "tavily"] = Field(
+        default="gemini", alias="WEB_SEARCH_PROVIDER"
+    )
     tavily_api_key: str | None = Field(default=None, alias="TAVILY_API_KEY")
-    web_search_enabled: bool = Field(default=False, alias="WEB_SEARCH_ENABLED")
+    exa_api_key: str | None = Field(default=None, alias="EXA_API_KEY")
     web_search_max_results: int = Field(default=5, alias="WEB_SEARCH_MAX_RESULTS")
 
     # Embeddings & Vector Store
