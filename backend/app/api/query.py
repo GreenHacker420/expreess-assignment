@@ -1,6 +1,7 @@
 """API router for query submission."""
 
 import logging
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from backend.app.graph.state import create_initial_state
@@ -56,11 +57,13 @@ async def query_documentation(
             detail="The technical documentation corpus is empty. Ingest documents before querying.",
         )
 
+    session_id = payload.session_id or str(uuid.uuid4())
     initial_state = create_initial_state(question)
     query_id = initial_state["query_id"]
 
+    config = {"configurable": {"thread_id": session_id}}
     try:
-        final_state = await graph.ainvoke(initial_state)
+        final_state = await graph.ainvoke(initial_state, config=config)
     except LLMTimeoutError as e:
         logger.error("[query_id=%s] Upstream LLM timeout: %s", query_id, e)
         raise HTTPException(
@@ -104,6 +107,7 @@ async def query_documentation(
 
     return QueryResponse(
         query_id=query_id,
+        session_id=session_id,
         answer=final_state["answer"],
         status=final_state["status"],
         citations=citations_out,

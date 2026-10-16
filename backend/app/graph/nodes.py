@@ -49,9 +49,15 @@ class RAGNodeFactory:
     async def analyze_query(self, state: GraphState) -> Dict[str, Any]:
         """Node 1: Rewrites the question for retrieval and classifies intent."""
         question = state["original_question"]
-        logger.info("[query_id=%s] Node: analyze_query for: '%s'", state["query_id"], question)
+        chat_history = state.get("chat_history", [])
+        logger.info(
+            "[query_id=%s] Node: analyze_query for: '%s' (history: %d)",
+            state["query_id"],
+            question,
+            len(chat_history),
+        )
 
-        analysis = await self.llm.analyze_query(question)
+        analysis = await self.llm.analyze_query(question, chat_history=chat_history)
         retrieval_query = analysis.transformed_query.strip()
         query_type = analysis.query_type
         queries = [retrieval_query]
@@ -378,6 +384,7 @@ class RAGNodeFactory:
             "labeled_context": labeled_context,
             "generation_attempts": state.get("generation_attempts", 0) + 1,
             "generation_needs_retrieval": False,
+            "chat_history": [{"role": "assistant", "content": gen_output.answer.strip()}],
         }
 
     async def check_grounding(self, state: GraphState) -> Dict[str, Any]:
@@ -402,6 +409,7 @@ class RAGNodeFactory:
             "answer": FALLBACK_ANSWER,
             "citations": [],
             "status": "insufficient_context",
+            "chat_history": [{"role": "assistant", "content": FALLBACK_ANSWER}],
         }
 
 

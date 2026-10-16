@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import List, Literal, Optional, Protocol, runtime_checkable
+from typing import Dict, List, Literal, Optional, Protocol, runtime_checkable
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 from langchain_groq import ChatGroq
@@ -92,9 +92,9 @@ class LLMUpstreamError(LLMOperationalError):
 
 @runtime_checkable
 class LLMService(Protocol):
-    """Protocol for LLM interactions."""
-
-    async def analyze_query(self, question: str) -> QueryAnalysisOutput: ...
+    async def analyze_query(
+        self, question: str, chat_history: Optional[List[Dict[str, str]]] = None
+    ) -> QueryAnalysisOutput: ...
 
     async def grade_chunk(
         self, question: str, chunk_id: str, chunk_text: str
@@ -173,10 +173,28 @@ class GroqLLMService:
                     continue
                 raise
 
-    async def analyze_query(self, question: str) -> QueryAnalysisOutput:
+    async def analyze_query(
+        self, question: str, chat_history: Optional[List[Dict[str, str]]] = None
+    ) -> QueryAnalysisOutput:
+        human_content = f"User question: {question}"
+        if chat_history and len(chat_history) > 1:
+            history_lines = []
+            for msg in chat_history[:-1][-4:]:
+                role = msg.get("role", "user").capitalize()
+                content = str(msg.get("content", "")).strip()
+                if content:
+                    history_lines.append(f"{role}: {content}")
+            if history_lines:
+                history_text = "\n".join(history_lines)
+                human_content = (
+                    f"Prior Conversation History:\n{history_text}\n\n"
+                    f"Current User Question: {question}\n\n"
+                    "Formulate a self-contained retrieval query resolving any pronouns or references based on the conversation history."
+                )
+
         messages = [
             ("system", QUERY_ANALYSIS_SYSTEM_PROMPT),
-            ("human", f"User question: {question}"),
+            ("human", human_content),
         ]
         try:
             res = await self._invoke_with_backoff(self._analyzer, messages)
@@ -364,7 +382,9 @@ class MockLLMService:
         # Per-chunk overrides
         self.chunk_relevance_map: dict[str, bool] = {}
 
-    async def analyze_query(self, question: str) -> QueryAnalysisOutput:
+    async def analyze_query(
+        self, question: str, chat_history: Optional[List[Dict[str, str]]] = None
+    ) -> QueryAnalysisOutput:
         if self.simulate_timeout:
             raise LLMTimeoutError("Simulated timeout")
         if self.simulate_upstream_error:
@@ -376,8 +396,16 @@ class MockLLMService:
                 transformed_query=question,
                 query_type="conceptual",
             )
+
+        transformed = f"{question} fastapi technical reference"
+        # If follow-up reference detected and history is present, incorporate prior context
+        if chat_history and len(chat_history) > 1 and any(p in q_lower for p in [" it", " that", " them", " previous"]):
+            prev_user_q = next((m["content"] for m in reversed(chat_history[:-1]) if m.get("role") == "user"), "")
+            if prev_user_q:
+                transformed = f"{prev_user_q} {question} fastapi technical reference"
+
         return QueryAnalysisOutput(
-            transformed_query=f"{question} fastapi technical reference",
+            transformed_query=transformed,
             query_type="how-to",
             retrieval_queries=self.retrieval_queries,
         )

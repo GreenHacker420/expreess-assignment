@@ -44,6 +44,8 @@ faiss_index/
 *.chroma
 *.sqlite3
 *.db
+*.db-shm
+*.db-wal
 vectorstore/
 data/vectorstore/
 storage/

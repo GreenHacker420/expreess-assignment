@@ -31,6 +31,10 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     """Schema for query answers."""
     query_id: str = Field(description="Unique tracking ID for this query")
+    session_id: Optional[str] = Field(
+        default=None,
+        description="Session/thread identifier for conversational memory tracking",
+    )
     answer: str = Field(description="Grounded response synthesized from documentation")
     status: Literal["answered", "insufficient_context"] = Field(
         description="Outcome of RAG pipeline: answered or insufficient_context"

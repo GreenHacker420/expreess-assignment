@@ -53,23 +53,30 @@ def render_qa_tab():
         label_visibility="collapsed",
     )
 
-    col_btn, col_clear, _ = st.columns([1.5, 1, 5.5])
+    col_btn, col_clear, _ = st.columns([1.5, 1.2, 5.3])
     ask_clicked = col_btn.button("Submit Question", type="primary", width="stretch")
-    if col_clear.button("Clear", width="stretch"):
+    if col_clear.button("New Chat", width="stretch", help="Clear conversation history and start a new session"):
         st.session_state["active_question"] = ""
         st.session_state["last_query_response"] = None
+        st.session_state["session_id"] = None
         st.rerun()
+
+    if st.session_state.get("session_id"):
+        st.caption(f"🧵 Multi-turn Thread Active: `{st.session_state['session_id'][:8]}...` (prior turns preserved)")
 
     if ask_clicked:
         if not user_query.strip():
             st.warning("Please enter a technical question to ask.")
         else:
             with st.spinner("Analyzing query intent, retrieving chunks, and grading relevance..."):
-                res = run_rag_query(user_query.strip())
+                curr_session = st.session_state.get("session_id")
+                res = run_rag_query(user_query.strip(), session_id=curr_session)
                 if res:
                     st.session_state["last_query_response"] = res
                     st.session_state["last_query_latency"] = res.get("_latency", 0.0)
                     st.session_state["feedback_status"] = None
+                    if res.get("session_id"):
+                        st.session_state["session_id"] = res["session_id"]
                 st.session_state["active_question"] = user_query.strip()
                 st.rerun()
 

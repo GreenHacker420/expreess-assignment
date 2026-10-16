@@ -525,3 +525,60 @@ def test_route_after_grading_logic():
     assert route_after_grading(s4) == "web_search"
     s5 = {**s4, "web_search_attempted": True}
     assert route_after_grading(s5) == "fallback"
+
+
+@pytest.mark.asyncio
+async def test_sqlite_checkpointer_preserves_conversation_history(mock_embeddings, mock_vector_store):
+    from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+
+    saver_cm = AsyncSqliteSaver.from_conn_string(":memory:")
+    checkpointer = await saver_cm.__aenter__()
+    await checkpointer.setup()
+
+    mock_vector_store.add_chunks(
+        chunk_ids=["chunk_1"],
+        documents=["Path parameters are declared with format strings in FastAPI."],
+        metadatas=[
+            {
+                "chunk_id": "chunk_1",
+                "title": "Path Params",
+                "section": "Path",
+                "source": "path.md",
+            }
+        ],
+        embeddings=[mock_embeddings.embed_query("query")],
+    )
+
+    try:
+        llm = MockLLMService(default_relevant=True, generation_labels=["S1"])
+        graph = build_rag_graph(
+            llm=llm,
+            embeddings=mock_embeddings,
+            vector_store=mock_vector_store,
+            checkpointer=checkpointer,
+        )
+
+        config = {"configurable": {"thread_id": "session-test-mem"}}
+
+        # Turn 1
+        state_t1 = create_initial_state("How do path parameters work in FastAPI?")
+        res_t1 = await graph.ainvoke(state_t1, config=config)
+        assert res_t1["status"] == "answered"
+        assert len(res_t1["chat_history"]) == 2  # user + assistant
+
+        # Turn 2: follow-up referencing "them"
+        state_t2 = create_initial_state("Can I add validation to them?")
+        res_t2 = await graph.ainvoke(state_t2, config=config)
+        assert res_t2["status"] == "answered"
+        # 4 messages across 2 turns preserved in thread state
+        assert len(res_t2["chat_history"]) == 4
+        assert res_t2["chat_history"][0]["role"] == "user"
+        assert res_t2["chat_history"][1]["role"] == "assistant"
+        assert res_t2["chat_history"][2]["role"] == "user"
+        assert res_t2["chat_history"][3]["role"] == "assistant"
+
+        # Verify query analysis contextualized the query incorporating Turn 1
+        assert "path parameters" in res_t2["retrieval_query"].lower()
+    finally:
+        await saver_cm.__aexit__(None, None, None)
+

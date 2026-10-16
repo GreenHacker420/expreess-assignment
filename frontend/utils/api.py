@@ -43,13 +43,17 @@ def get_indexed_documents() -> List[Dict[str, Any]]:
     return []
 
 
-def run_rag_query(question: str) -> Optional[Dict[str, Any]]:
-    """Submit user query to LangGraph RAG pipeline."""
+def run_rag_query(question: str, session_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Submit user query to LangGraph RAG pipeline with optional session memory tracking."""
     try:
         t0 = time.time()
+        payload = {"question": question}
+        if session_id:
+            payload["session_id"] = session_id
+
         resp = httpx.post(
             f"{BACKEND_URL}/query",
-            json={"question": question},
+            json=payload,
             timeout=HTTP_TIMEOUT,
         )
         latency = round(time.time() - t0, 2)

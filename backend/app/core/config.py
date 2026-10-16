@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     chroma_dir: str = Field(default="backend/data/chroma", alias="CHROMA_DIR")
     chroma_collection: str = Field(default="fastapi_docs_gemini2_qa_v1", alias="CHROMA_COLLECTION")
     db_path: str = Field(default="backend/data/app.db", alias="DB_PATH")
+    checkpoint_db_path: str = Field(
+        default="backend/data/checkpoints.db", alias="CHECKPOINT_DB_PATH"
+    )
     docs_dir: str = Field(default="backend/data/corpus", alias="DOCS_DIR")
     manifest_path: str = Field(default="backend/data/corpus_manifest.json", alias="MANIFEST_PATH")
 

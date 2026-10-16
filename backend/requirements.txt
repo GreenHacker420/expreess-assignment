@@ -9,6 +9,8 @@ python-dotenv>=1.2.0
 # LangChain & LangGraph Orchestration (Official 1.0 LTS)
 langchain>=1.4.0
 langgraph>=1.2.0
+langgraph-checkpoint-sqlite>=3.1.2
+aiosqlite>=0.22.0
 langchain-core>=1.6.0
 langchain-community>=0.4.0
 

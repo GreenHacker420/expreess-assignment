@@ -5,6 +5,8 @@ from typing import AsyncGenerator
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from langgraph.checkpoint.memory import MemorySaver
+
 from backend.app.core.config import Settings
 from backend.app.graph.builder import build_rag_graph
 from backend.app.main import create_app
@@ -53,13 +55,14 @@ def test_ingestion(mock_embeddings, mock_vector_store, mock_database):
 
 @pytest.fixture
 def test_graph(mock_llm, mock_embeddings, mock_vector_store):
-    """Compiled LangGraph StateGraph wired with mock services."""
+    """Compiled LangGraph StateGraph wired with mock services and checkpointer."""
     return build_rag_graph(
         llm=mock_llm,
         embeddings=mock_embeddings,
         vector_store=mock_vector_store,
         top_k=5,
         grading_concurrency=3,
+        checkpointer=MemorySaver(),
     )
 
 

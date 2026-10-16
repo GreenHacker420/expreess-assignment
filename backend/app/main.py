@@ -68,6 +68,20 @@ async def lifespan(app: FastAPI):
             else None
         )
 
+    if not hasattr(app.state, "checkpointer"):
+        try:
+            from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+            saver_cm = AsyncSqliteSaver.from_conn_string(settings.checkpoint_db_path)
+            app.state.checkpointer = await saver_cm.__aenter__()
+            await app.state.checkpointer.setup()
+            app.state._checkpointer_cm = saver_cm
+            logger.info("Persistent SQLite checkpointer initialized at %s", settings.checkpoint_db_path)
+        except Exception as e:
+            logger.warning("Failed to initialize AsyncSqliteSaver (%s); using in-memory checkpointer.", e)
+            from langgraph.checkpoint.memory import MemorySaver
+            app.state.checkpointer = MemorySaver()
+            app.state._checkpointer_cm = None
+
     if not hasattr(app.state, "graph"):
         app.state.graph = build_rag_graph(
             llm=app.state.llm,
@@ -75,12 +89,18 @@ async def lifespan(app: FastAPI):
             vector_store=app.state.vector_store,
             top_k=settings.top_k,
             grading_concurrency=settings.grading_concurrency,
+            checkpointer=app.state.checkpointer,
             web_search=app.state.web_search,
             web_search_max_results=settings.web_search_max_results,
         )
 
     logger.info("Application initialized successfully.")
     yield
+    if hasattr(app.state, "_checkpointer_cm") and app.state._checkpointer_cm:
+        try:
+            await app.state._checkpointer_cm.__aexit__(None, None, None)
+        except Exception as exc:
+            logger.warning("Error closing checkpointer context manager: %s", exc)
     logger.info("Application shutting down.")
 
 

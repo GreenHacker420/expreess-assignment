@@ -1,9 +1,9 @@
-"""Typed state definitions for the LangGraph self-corrective RAG workflow."""
-
+from operator import add
+from typing import Annotated, Any, Dict, List, Literal, Optional
 import uuid
-from typing import Any, Dict, List, Literal, Optional
 from typing_extensions import TypedDict
 from pydantic import BaseModel, Field
+
 
 
 class RetrievedChunk(BaseModel):
@@ -67,6 +67,7 @@ class GraphState(TypedDict):
     answer: str
     citations: List[Dict[str, Any]]
     status: Literal["answered", "insufficient_context"]
+    chat_history: Annotated[List[Dict[str, str]], add]
 
 
 def create_initial_state(
@@ -103,4 +104,5 @@ def create_initial_state(
         answer="",
         citations=[],
         status="insufficient_context",
+        chat_history=[{"role": "user", "content": cleaned_question}],
     )

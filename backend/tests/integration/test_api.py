@@ -134,3 +134,34 @@ async def test_ingest_json_invalid_url_returns_422(async_client: AsyncClient):
     )
     assert response.status_code == 422
     assert "url must start with http" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_multi_turn_conversation_memory_preserves_context(async_client: AsyncClient):
+    # 1. Ingest document
+    md_content = b"# FastAPI Tutorial\n\n## Path Params\nPath parameters are declared with format strings."
+    files = {"files": ("tutorial.md", md_content, "text/markdown")}
+    ingest_res = await async_client.post("/ingest", files=files)
+    assert ingest_res.status_code == 200
+
+    # 2. Turn 1: Initial query with session_id
+    session_id = "test-session-multi-turn-456"
+    q1_res = await async_client.post(
+        "/query",
+        json={"question": "How do path parameters work in FastAPI?", "session_id": session_id},
+    )
+    assert q1_res.status_code == 200
+    q1_data = q1_res.json()
+    assert q1_data["session_id"] == session_id
+    assert q1_data["status"] == "answered"
+
+    # 3. Turn 2: Follow-up referencing "them" within the same session
+    q2_res = await async_client.post(
+        "/query",
+        json={"question": "Can I add type validation to them?", "session_id": session_id},
+    )
+    assert q2_res.status_code == 200
+    q2_data = q2_res.json()
+    assert q2_data["session_id"] == session_id
+    assert q2_data["status"] == "answered"
+
