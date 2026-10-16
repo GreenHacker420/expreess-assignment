@@ -35,6 +35,7 @@
 11. [Evaluation Benchmark & Results](#-evaluation-benchmark--results)
 12. [Automated Test Suite](#-automated-test-suite)
 13. [Design Trade-offs & Production Hardening](#-design-trade-offs--production-hardening)
+14. [Engineering Reflections, Assumptions & Future Improvements](#-engineering-reflections-assumptions--future-improvements)
 
 ---
 
@@ -512,6 +513,21 @@ uv run pytest backend/tests/ -v
 | **Chunking** | Heading-aware AST Markdown parser | Fixed-size character window | Prevents breaking code snippets mid-block and attaches meaningful section headers to vector metadata. |
 | **Hallucination Prevention** | Fallback disclaimer on retry exhaustion | Unconstrained generation | Technical users prefer a clear "I do not have documentation on this topic" over fabricated APIs or incorrect syntax. |
 | **Import Discipline** | All imports strictly at module top-level | Inline / deferred imports | Prevents runtime `ImportError` inside node loops, simplifies static analysis and dependency tracing. |
+
+## 💭 Engineering Reflections, Assumptions & Future Improvements
+
+### 1. Assumptions Made
+- **Corpus Domain & Structure:** Technical documentation is assumed to follow Markdown conventions where heading levels (`#`, `##`, `###`) delineate semantic concepts, and fenced code blocks (`python`) must be preserved intact to prevent broken syntax.
+- **Fail-Closed Safety Policy:** For developer documentation, a hallucinated syntax error or fabricated parameter is far worse than an explicit refusal. The system assumes a strict fail-closed posture: if document grading or Self-RAG grounding fails after bounded retries, it returns a transparent disclaimer (`insufficient_context`).
+- **Session Thread Isolation:** Assumes incoming requests from the same user session supply a persistent `session_id` (managed automatically by the Streamlit frontend or API client). Checkpoints are stored in persistent SQLite (`backend/data/checkpoints.db`) for lightweight, zero-dependency thread isolation.
+- **Asymmetric Vector Embeddings:** Assumes modern embedding models (Gemini Embedding 2) perform best when asymmetric query/document task types are specified during vector generation.
+
+### 2. What Would Be Improved With More Time
+- **Hybrid Retrieval with Reciprocal Rank Fusion (RRF):** Combine Chroma semantic vector search with BM25 sparse keyword indexing using Rank Fusion (`langchain` hybrid search) to improve retrieval precision for exact function signatures and keyword-dense code tokens.
+- **Distributed State & Scalable Checkpointing:** Replace the local SQLite checkpointer with PostgreSQL (`AsyncPostgresSaver` from `langgraph-checkpoint-postgres`) and Redis for horizontal multi-replica autoscaling in Kubernetes.
+- **Code-Aware AST Chunking:** Leverage Python's `ast` module and `tree-sitter` to parse code snippets along semantic boundaries (classes, functions, decorators) rather than character-count approximations.
+- **Token Streaming via Server-Sent Events (SSE):** Stream generated answer tokens in real time to the FastAPI client and Streamlit UI to minimize time-to-first-token latency for developer users.
+- **Continuous Feedback Alignment Loop:** Utilize the thumbs up/down feedback collected via `POST /feedback` to build a preference dataset for automated prompt tuning and regression benchmarking.
 
 ---
 
