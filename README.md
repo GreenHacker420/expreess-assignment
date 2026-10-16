@@ -164,7 +164,7 @@ sequenceDiagram
 
 ---
 
-## Corpus & Chunking Strategy
+## 📚 Corpus & Chunking Strategy
 
 ### Curated Technical Corpus
 The assistant is indexed with verified official **FastAPI** technical documentation (`backend/data/corpus/`):
@@ -264,7 +264,7 @@ expreess-assignment/
 ### 1. Clone & Set Up Environment
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/expreess-assignment.git
+git clone https://github.com/GreenHacker420/expreess-assignment.git
 cd expreess-assignment
 
 # Create virtual environment and install all dependencies
@@ -339,7 +339,7 @@ Open [http://localhost:8501](http://localhost:8501) in your browser.
 
 ## 🖥 Streamlit Interactive Dashboard
 
-The Streamlit frontend (`frontend/app.py`), deployed live on [Streamlit Community Cloud](https://expreess-assignment.streamlit.app), provides three purpose-built tabs:
+The Streamlit frontend (`frontend/app.py`), deployed live on [Streamlit Community Cloud](https://expreess-assignment.streamlit.app), provides four purpose-built tabs:
 1. **💬 Assistant Q&A:**
    - Interactive prompt with quick preset technical queries.
    - Grounded synthesized answers formatted in Markdown with syntax-highlighted code blocks.
